@@ -11,5 +11,7 @@ data class Usuario(
     val email: String,
     val telefono: String,
     val password: String,
-    val rol: String // puede ser "admin" o "cliente"
+    val rol: String, // puede ser "admin" o "cliente"
+    val fotoUri: String? = null
+
 )

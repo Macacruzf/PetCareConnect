@@ -32,6 +32,7 @@ data class RegisterUiState(
     val phone: String = "",
     val pass: String = "",
     val confirm: String = "",
+    val fotoUri: String? = null,
     val nameError: String? = null,
     val emailError: String? = null,
     val phoneError: String? = null,
@@ -156,6 +157,11 @@ class AuthViewModel(
         recomputeRegisterCanSubmit()
     }
 
+    // ✅ Nuevo: guardar foto seleccionada
+    fun onFotoSelected(uri: String) {
+        _register.update { it.copy(fotoUri = uri) }
+    }
+
     private fun recomputeRegisterCanSubmit() {
         val s = _register.value
         val noErrors = listOf(s.nameError, s.emailError, s.phoneError, s.passError, s.confirmError).all { it == null }
@@ -175,6 +181,7 @@ class AuthViewModel(
             val email = s.email.trim().lowercase()
             val phone = s.phone.trim()
             val pass = s.pass.trim()
+            val fotoUri = s.fotoUri // ✅ se guarda la foto
 
             try {
                 val existingUser = repository?.getByEmail(email)
@@ -195,7 +202,8 @@ class AuthViewModel(
                         email = email,
                         telefono = phone,
                         password = pass,
-                        rol = "CLIENTE"
+                        rol = "CLIENTE",
+                        fotoUri = fotoUri // ✅ guardamos la foto en la BD
                     )
                 )
 
