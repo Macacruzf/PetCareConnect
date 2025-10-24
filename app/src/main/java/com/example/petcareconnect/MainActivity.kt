@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ✅ Inicializamos la BD y el ViewModel
+        // Inicializamos la BD y el ViewModel
         val db = PetCareDatabase.getDatabase(applicationContext)
         val userRepo = UsuarioRepository(db.usuarioDao())
         val authViewModel = AuthViewModelFactory(userRepo).create(AuthViewModel::class.java)
