@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.petcareconnect.R
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun HomeScreen(
@@ -56,9 +59,13 @@ fun HomeScreen(
             Image(
                 painter = painterResource(id = R.drawable.ic_petcare_logo),
                 contentDescription = "Logo PetCare Connect",
-                modifier = Modifier.size(100.dp),
-                colorFilter = ColorFilter.tint(verde)
+                modifier = Modifier
+                    .size(100.dp) // tamaño del círculo
+                    .clip(CircleShape) // recorta en forma circular
+                    .background(Color.LightGray), // fondo opcional
+                contentScale = ContentScale.Crop // recorta la imagen si es más grande
             )
+
 
             Text(
                 text = "PetCare Connect",
@@ -83,10 +90,9 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    RoundButton("Productos", R.drawable.ic_petcare_logo, azul, onGoProductos)
-                    if (isAdmin) {
-                        RoundButton("Categorías", R.drawable.ic_petcare_logo, cian, onGoCategorias)
-                    }
+                    RoundButton("Productos", R.drawable.productos_logo, azul, onGoProductos)
+                    RoundButton("Categorías", R.drawable.ic_petcare_logo, cian, onGoCategorias)
+
                 }
 
                 if (isAdmin) {
@@ -137,22 +143,43 @@ fun RoundButton(
     color: Color,
     onClick: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        // 🔹 Botón circular con color más suave
         Button(
             onClick = onClick,
-            modifier = Modifier.size(80.dp),
+            modifier = Modifier
+                .size(120.dp) // botón más grande
+                .clip(CircleShape),
             shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = color),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = color.copy(alpha = 0.25f) // 🔸 menos saturado (25% opacidad)
+            ),
             contentPadding = PaddingValues(0.dp)
         ) {
-            Icon(
+            // 🔹 Imagen más grande y destacada
+            Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = label,
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(80.dp) // ⬅️ más grande para que se note más
+                    .clip(CircleShape),
+                contentScale = ContentScale.Fit // mantiene proporciones
             )
         }
-        Spacer(Modifier.height(6.dp))
-        Text(label, color = Color.Black, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = label,
+            color = Color.Black,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center
+        )
     }
 }
+
+

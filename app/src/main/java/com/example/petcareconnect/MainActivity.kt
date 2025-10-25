@@ -1,4 +1,3 @@
-// 📦 MainActivity.kt
 package com.example.petcareconnect
 
 import android.os.Bundle
