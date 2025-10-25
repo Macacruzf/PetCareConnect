@@ -6,7 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.petcareconnect.data.db.dao.*
+import com.example.petcareconnect.data.db.dao.CategoriaDao
+import com.example.petcareconnect.data.db.dao.DetalleVentaDao
+import com.example.petcareconnect.data.db.dao.ProductoDao
+import com.example.petcareconnect.data.db.dao.TicketDao
+import com.example.petcareconnect.data.db.dao.VentaDao
 import com.example.petcareconnect.data.model.*
+import com.example.petcareconnect.data.model.Categoria
+import com.example.petcareconnect.data.model.DetalleVenta
+import com.example.petcareconnect.data.model.Estado
+import com.example.petcareconnect.data.model.Producto
+import com.example.petcareconnect.data.model.Ticket
+import com.example.petcareconnect.data.model.Usuario
+import com.example.petcareconnect.data.model.Venta
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,8 +38,8 @@ import kotlinx.coroutines.launch
         Usuario::class,
         Ticket::class
     ],
-    version = 5, // 🔹 incrementa versión si cambias entidades
-    exportSchema = false // 🔹 desactiva exportación si no usas schemaLocation
+    version = 5, //  incrementar versión si cambias entidades
+    exportSchema = false //  desactiva exportación si no usas schemaLocation
 )
 abstract class PetCareDatabase : RoomDatabase() {
 
