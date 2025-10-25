@@ -101,7 +101,7 @@ class VentaViewModel(
             try {
                 _state.value = _state.value.copy(isSubmitting = true, errorMsg = null, successMsg = null)
 
-                // 1️⃣ Guardar la venta principal
+                // ️Guardar la venta principal
                 val venta = Venta(
                     idVenta = 0,
                     fecha = System.currentTimeMillis(), // guardamos timestamp
@@ -110,12 +110,12 @@ class VentaViewModel(
                 )
                 val idVenta = ventaRepo.insert(venta)
 
-                // 2️⃣ Guardar los detalles asociados
+                // Guardar los detalles asociados
                 _state.value.detalles.forEach {
                     detalleRepo.insert(it.copy(ventaId = idVenta.toInt()))
                 }
 
-                // 3️⃣ Limpiar estado
+                // Limpiar estado
                 _state.value = _state.value.copy(
                     detalles = emptyList(),
                     total = 0.0,

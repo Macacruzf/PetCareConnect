@@ -6,19 +6,13 @@ import kotlinx.coroutines.flow.Flow
 
 class CategoriaRepository(private val dao: CategoriaDao) {
 
-    suspend fun insert(categoria: Categoria) {
-        dao.insert(categoria)
-    }
+    suspend fun insert(categoria: Categoria) = dao.insert(categoria)
 
-    fun getAllCategorias(): Flow<List<Categoria>> {
-        return dao.getAll()
-    }
+    fun getAllCategorias(): Flow<List<Categoria>> = dao.getAll() // ✅ ahora coincide con el DAO
 
-    suspend fun deleteById(id: Int) {
-        dao.deleteById(id)
-    }
+    suspend fun deleteById(id: Int) = dao.deleteById(id)
 
-    suspend fun update(categoria: Categoria) {
-        dao.update(categoria)
-    }
+    suspend fun update(categoria: Categoria) = dao.update(categoria)
+
+    suspend fun getAllOnce(): List<Categoria> = dao.getAllOnce() // ✅ para usarse en la semilla inicial
 }

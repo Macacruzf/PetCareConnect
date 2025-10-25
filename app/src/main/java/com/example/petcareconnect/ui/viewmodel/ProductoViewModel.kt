@@ -1,6 +1,5 @@
 package com.example.petcareconnect.ui.viewmodel
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -20,6 +19,7 @@ data class ProductoUiState(
     val stock: String = "",
     val categoriaId: Int? = null,
     val estadoId: Int? = null,
+    val imagenResId: Int? = null, // 🔹 Cambiado: ahora es Int
     val isLoading: Boolean = false,
     val errorMsg: String? = null,
     val successMsg: String? = null
@@ -38,7 +38,7 @@ class ProductoViewModel(
         loadCategorias()
     }
 
-    // Cargar productos
+    // 🔹 Cargar productos
     private fun loadProductos() {
         viewModelScope.launch {
             repository.getAllProductos().collect { productos ->
@@ -47,7 +47,7 @@ class ProductoViewModel(
         }
     }
 
-    // Cargar categorías
+    // 🔹 Cargar categorías
     private fun loadCategorias() {
         viewModelScope.launch {
             categoriaRepository.getAllCategorias().collect { categorias ->
@@ -56,13 +56,14 @@ class ProductoViewModel(
         }
     }
 
-    // Insertar producto
+    // 🔹 Insertar producto con imagen (de drawable)
     fun insertProducto() {
         val nombre = _state.value.nombre.trim()
         val precio = _state.value.precio.toDoubleOrNull()
         val stock = _state.value.stock.toIntOrNull()
         val categoriaId = _state.value.categoriaId
-        val estadoId = _state.value.estadoId ?: 1 // por ahora usamos 1
+        val estadoId = _state.value.estadoId ?: 1
+        val imagenResId = _state.value.imagenResId
 
         if (nombre.isEmpty() || precio == null || stock == null || categoriaId == null) {
             _state.value = _state.value.copy(errorMsg = "Completa todos los campos correctamente.")
@@ -76,26 +77,40 @@ class ProductoViewModel(
                     precio = precio,
                     stock = stock,
                     categoriaId = categoriaId,
-                    estadoId = estadoId
+                    estadoId = estadoId,
+                    imagenResId = imagenResId // ✅ ahora correcto
                 )
             )
-            _state.value = _state.value.copy(successMsg = "Producto guardado correctamente.", errorMsg = null)
+            _state.value = _state.value.copy(
+                successMsg = "Producto guardado correctamente.",
+                errorMsg = null,
+                nombre = "",
+                precio = "",
+                stock = "",
+                categoriaId = null,
+                imagenResId = null
+            )
         }
     }
 
+    // 🔹 Eliminar producto
     fun deleteProducto(id: Int) {
         viewModelScope.launch {
             repository.deleteById(id)
         }
     }
 
+    // 🔹 Manejadores de cambios de campos
     fun onNombreChange(value: String) { _state.value = _state.value.copy(nombre = value) }
     fun onPrecioChange(value: String) { _state.value = _state.value.copy(precio = value) }
     fun onStockChange(value: String) { _state.value = _state.value.copy(stock = value) }
     fun onCategoriaChange(value: Int) { _state.value = _state.value.copy(categoriaId = value) }
+
+    // 🔹 Nuevo: asignar imagen local (por ejemplo desde drawable)
+    fun onImagenChange(resId: Int?) { _state.value = _state.value.copy(imagenResId = resId) }
 }
 
-// Factory con ambos repositorios
+// 🔹 Factory con ambos repositorios
 class ProductoViewModelFactory(
     private val repository: ProductoRepository,
     private val categoriaRepository: CategoriaRepository

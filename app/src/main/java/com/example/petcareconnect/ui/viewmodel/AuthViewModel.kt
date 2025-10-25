@@ -33,6 +33,7 @@ data class RegisterUiState(
     val pass: String = "",
     val confirm: String = "",
     val fotoUri: String? = null,
+    val rol: String? = "CLIENTE", // ✅ agregado campo de rol
     val nameError: String? = null,
     val emailError: String? = null,
     val phoneError: String? = null,
@@ -162,6 +163,11 @@ class AuthViewModel(
         _register.update { it.copy(fotoUri = uri) }
     }
 
+    // ✅ Nuevo: cambiar rol
+    fun onRolChange(newRol: String) {
+        _register.update { it.copy(rol = newRol) }
+    }
+
     private fun recomputeRegisterCanSubmit() {
         val s = _register.value
         val noErrors = listOf(s.nameError, s.emailError, s.phoneError, s.passError, s.confirmError).all { it == null }
@@ -181,7 +187,8 @@ class AuthViewModel(
             val email = s.email.trim().lowercase()
             val phone = s.phone.trim()
             val pass = s.pass.trim()
-            val fotoUri = s.fotoUri // ✅ se guarda la foto
+            val fotoUri = s.fotoUri
+            val rol = s.rol ?: "CLIENTE"
 
             try {
                 val existingUser = repository?.getByEmail(email)
@@ -202,8 +209,8 @@ class AuthViewModel(
                         email = email,
                         telefono = phone,
                         password = pass,
-                        rol = "CLIENTE",
-                        fotoUri = fotoUri // ✅ guardamos la foto en la BD
+                        rol = rol, // ✅ ahora toma el rol seleccionado
+                        fotoUri = fotoUri
                     )
                 )
 

@@ -5,15 +5,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext // ✅ Import agregado
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,8 +25,11 @@ import com.example.petcareconnect.data.model.Producto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductoScreen() {
-    val context = LocalContext.current // ✅ ahora funciona
+fun ProductoScreen(
+    rol: String? = null, // 🔹 Recibe el rol del usuario
+    onAgregarAlCarrito: (Producto) -> Unit = {}
+) {
+    val context = LocalContext.current
     val db = remember {
         Room.databaseBuilder(
             context,
@@ -42,8 +43,10 @@ fun ProductoScreen() {
     val vm: ProductoViewModel = viewModel(factory = ProductoViewModelFactory(productoRepo, categoriaRepo))
 
     val state by vm.state.collectAsState()
-
     var showDialog by remember { mutableStateOf(false) }
+
+    val isAdmin = rol == "ADMIN"
+    val isCliente = rol == "CLIENTE" || rol == "INVITADO"
 
     Box(
         modifier = Modifier
@@ -59,30 +62,35 @@ fun ProductoScreen() {
             )
             Spacer(Modifier.height(16.dp))
 
-            // 🔹 Listado de productos
+            // 🔹 Lista de productos para todos los roles
             LazyColumn(
                 modifier = Modifier.weight(1f)
             ) {
                 items(state.productos) { producto ->
                     ProductoCard(
                         producto = producto,
-                        onDelete = { vm.deleteProducto(producto.idProducto) }
+                        isAdmin = isAdmin,
+                        isCliente = isCliente,
+                        onDelete = { vm.deleteProducto(producto.idProducto) },
+                        onAgregarAlCarrito = { onAgregarAlCarrito(producto) }
                     )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // 🔹 Solo visible para admin (podrás controlarlo después con el rol del usuario)
-            ExtendedFloatingActionButton(
-                onClick = { showDialog = true },
-                icon = { Icon(Icons.Filled.Add, contentDescription = "Agregar producto") },
-                text = { Text("Nuevo producto") },
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+            // 🔹 Solo el admin puede agregar nuevos productos
+            if (isAdmin) {
+                ExtendedFloatingActionButton(
+                    onClick = { showDialog = true },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = "Agregar producto") },
+                    text = { Text("Nuevo producto") },
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
-        // 🔹 Diálogo para agregar producto
+        // 🔹 Diálogo para agregar producto (solo admin)
         if (showDialog) {
             DialogAgregarProducto(
                 onDismiss = { showDialog = false },
@@ -99,7 +107,13 @@ fun ProductoScreen() {
 // ----------------------- CARD DE PRODUCTO -----------------------
 
 @Composable
-fun ProductoCard(producto: Producto, onDelete: () -> Unit) {
+fun ProductoCard(
+    producto: Producto,
+    isAdmin: Boolean,
+    isCliente: Boolean,
+    onDelete: () -> Unit,
+    onAgregarAlCarrito: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,8 +137,21 @@ fun ProductoCard(producto: Producto, onDelete: () -> Unit) {
                 Text("Precio: $${producto.precio}", style = MaterialTheme.typography.bodySmall)
                 Text("Stock: ${producto.stock}", style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color.Red)
+
+            // 🔹 Mostrar botones según el rol
+            if (isAdmin) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                }
+            } else if (isCliente) {
+                Button(
+                    onClick = onAgregarAlCarrito,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800))
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = "Agregar")
+                    Spacer(Modifier.width(4.dp))
+                    Text("Agregar a compra")
+                }
             }
         }
     }
@@ -217,3 +244,4 @@ fun DialogAgregarProducto(
         }
     )
 }
+

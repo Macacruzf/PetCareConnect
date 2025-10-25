@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 🔹 Permisos (van SIEMPRE fuera del <application>) -->
+    <!-- Permisos (van SIEMPRE fuera del <application>) -->
     <!-- Permiso para cámara -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Permiso para acceder a imágenes (Android 13+) -->

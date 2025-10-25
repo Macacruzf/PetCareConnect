@@ -27,5 +27,6 @@ data class Producto(
     val precio: Double,
     val stock: Int,
     val categoriaId: Int,
-    val estadoId: Int
+    val estadoId: Int,
+    val imagenResId: Int? = null // ← Ruta o URI de la imagen (String)
 )

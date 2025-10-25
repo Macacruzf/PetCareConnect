@@ -13,7 +13,8 @@ interface UsuarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(usuario: Usuario)
 
-    @Query("SELECT * FROM usuario WHERE email = :email AND password = :password LIMIT 1")
+    // 🔹 Corrección: ignora mayúsculas/minúsculas y espacios
+    @Query("SELECT * FROM usuario WHERE LOWER(TRIM(email)) = LOWER(TRIM(:email)) AND password = :password LIMIT 1")
     suspend fun login(email: String, password: String): Usuario?
 
     @Query("SELECT * FROM usuario ORDER BY id DESC")
@@ -22,7 +23,7 @@ interface UsuarioDao {
     @Query("SELECT * FROM usuario WHERE id = :id LIMIT 1")
     suspend fun getById(id: Int): Usuario?
 
-    @Query("SELECT * FROM usuario WHERE email = :email LIMIT 1")
+    @Query("SELECT * FROM usuario WHERE LOWER(TRIM(email)) = LOWER(TRIM(:email)) LIMIT 1")
     suspend fun getByEmail(email: String): Usuario?
 
     @Query("DELETE FROM usuario WHERE id = :id")

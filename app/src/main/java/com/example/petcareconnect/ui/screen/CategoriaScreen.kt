@@ -111,7 +111,7 @@ fun CategoriaScreen() {
             }
         }
 
-        // 🔸 Diálogo de edición
+        // Diálogo de edición
         if (editDialog) {
             AlertDialog(
                 onDismissRequest = { editDialog = false },

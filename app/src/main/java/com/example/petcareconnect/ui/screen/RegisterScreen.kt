@@ -38,9 +38,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 
-// -------------------------------------------------------------
-// 🌟 VIEWMODEL WRAPPER
-// -------------------------------------------------------------
 @Composable
 fun RegisterScreenVm(
     onRegisteredNavigateLogin: () -> Unit,
@@ -54,6 +51,7 @@ fun RegisterScreenVm(
             "petcare_db"
         ).build()
     }
+
     val repository = remember { UsuarioRepository(db.usuarioDao()) }
     val vm: AuthViewModel = viewModel(factory = AuthViewModelFactory(repository))
     val state by vm.register.collectAsStateWithLifecycle()
@@ -70,6 +68,7 @@ fun RegisterScreenVm(
         pass = state.pass,
         confirm = state.confirm,
         fotoUri = state.fotoUri,
+        selectedRol = state.rol ?: "CLIENTE",
         nameError = state.nameError,
         emailError = state.emailError,
         phoneError = state.phoneError,
@@ -84,14 +83,16 @@ fun RegisterScreenVm(
         onPassChange = vm::onRegisterPassChange,
         onConfirmChange = vm::onConfirmChange,
         onFotoSelected = vm::onFotoSelected,
+        onRolChange = vm::onRolChange,
         onSubmit = vm::submitRegister,
         onGoLogin = onGoLogin
     )
 }
 
 // -------------------------------------------------------------
-// 🌟 REGISTER SCREEN UI COMPLETA
+// 🌟 REGISTER SCREEN UI COMPLETA CON SELECCIÓN DE ROL
 // -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class) // ✅ Agregado para ocultar la advertencia
 @Composable
 private fun RegisterScreen(
     name: String,
@@ -100,6 +101,7 @@ private fun RegisterScreen(
     pass: String,
     confirm: String,
     fotoUri: String?,
+    selectedRol: String,
     nameError: String?,
     emailError: String?,
     phoneError: String?,
@@ -114,11 +116,14 @@ private fun RegisterScreen(
     onPassChange: (String) -> Unit,
     onConfirmChange: (String) -> Unit,
     onFotoSelected: (String) -> Unit,
+    onRolChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onGoLogin: () -> Unit
 ) {
     var showPass by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
+    var expandedRol by remember { mutableStateOf(false) }
+    val roles = listOf("CLIENTE", "ADMIN")
 
     Box(
         modifier = Modifier
@@ -161,7 +166,6 @@ private fun RegisterScreen(
                 }
             }
 
-            // Imagen circular
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -187,11 +191,7 @@ private fun RegisterScreen(
                 }
             }
 
-            // Menú desplegable con opciones
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text("Tomar foto") },
                     leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
@@ -219,6 +219,37 @@ private fun RegisterScreen(
             RegisterField("Correo electrónico", email, onEmailChange, emailError, KeyboardType.Email)
             RegisterField("Teléfono", phone, onPhoneChange, phoneError, KeyboardType.Number)
 
+            // 🔹 Campo de selección de Rol
+            ExposedDropdownMenuBox(
+                expanded = expandedRol,
+                onExpandedChange = { expandedRol = !expandedRol }
+            ) {
+                OutlinedTextField(
+                    value = selectedRol,
+                    onValueChange = {},
+                    label = { Text("Rol") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRol) }
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expandedRol,
+                    onDismissRequest = { expandedRol = false }
+                ) {
+                    roles.forEach { rol ->
+                        DropdownMenuItem(
+                            text = { Text(rol) },
+                            onClick = {
+                                onRolChange(rol)
+                                expandedRol = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
             PasswordField("Contraseña", pass, onPassChange, passError, showPass) { showPass = !showPass }
             PasswordField("Confirmar contraseña", confirm, onConfirmChange, confirmError, showConfirm) { showConfirm = !showConfirm }
 
@@ -230,9 +261,7 @@ private fun RegisterScreen(
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit && !isSubmitting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -257,16 +286,10 @@ private fun RegisterScreen(
 }
 
 // -------------------------------------------------------------
-// 🧩 COMPONENTES REUTILIZABLES
+// 🧩 CAMPOS REUTILIZABLES
 // -------------------------------------------------------------
 @Composable
-fun RegisterField(
-    label: String,
-    value: String,
-    onChange: (String) -> Unit,
-    error: String?,
-    type: KeyboardType = KeyboardType.Text
-) {
+fun RegisterField(label: String, value: String, onChange: (String) -> Unit, error: String?, type: KeyboardType = KeyboardType.Text) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -281,14 +304,7 @@ fun RegisterField(
 }
 
 @Composable
-fun PasswordField(
-    label: String,
-    value: String,
-    onChange: (String) -> Unit,
-    error: String?,
-    visible: Boolean,
-    onToggle: () -> Unit
-) {
+fun PasswordField(label: String, value: String, onChange: (String) -> Unit, error: String?, visible: Boolean, onToggle: () -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -298,10 +314,7 @@ fun PasswordField(
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = onToggle) {
-                Icon(
-                    if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = null
-                )
+                Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
             }
         },
         modifier = Modifier.fillMaxWidth()
@@ -310,9 +323,7 @@ fun PasswordField(
     Spacer(Modifier.height(8.dp))
 }
 
-// -------------------------------------------------------------
-// 💾 GUARDAR FOTO TEMPORAL
-// -------------------------------------------------------------
+// GUARDAR FOTO
 fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
     val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.png")
     FileOutputStream(file).use {

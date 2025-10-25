@@ -7,15 +7,18 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ProductoDao {
 
-    // --- 🔹 Insertar o actualizar producto ---
+    // --- Insertar o actualizar producto ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(producto: Producto)
 
-    // --- 🔹 Obtener todos los productos (ordenados) ---
+    @Query("SELECT * FROM productos")
+    fun getAllOnce(): List<Producto>
+
+    // --- Obtener todos los productos ---
     @Query("SELECT * FROM productos ORDER BY idProducto DESC")
     fun getAll(): Flow<List<Producto>>
 
-    // --- 🔹 Buscar productos por nombre o categoría ---
+    // --- Buscar productos por nombre o categoría ---
     @Query("""
         SELECT * FROM productos 
         WHERE nombre LIKE '%' || :query || '%' 
@@ -26,7 +29,7 @@ interface ProductoDao {
     """)
     fun searchProductos(query: String): Flow<List<Producto>>
 
-    // --- 🔹 Filtrar por categoría específica ---
+    // --- Filtrar por categoría específica ---
     @Query("""
         SELECT * FROM productos 
         WHERE categoriaId = :categoriaId
@@ -34,21 +37,21 @@ interface ProductoDao {
     """)
     fun getByCategoria(categoriaId: Int): Flow<List<Producto>>
 
-    // --- 🔹 Filtrar productos activos ---
+    // --- Filtrar productos activos (usa tabla 'estado') ---
     @Query("""
         SELECT * FROM productos 
         WHERE estadoId IN (
-            SELECT idEstado FROM estados WHERE nombre = 'Activo'
+            SELECT idEstado FROM estados WHERE nombre = 'Disponible'
         )
         ORDER BY idProducto DESC
     """)
     fun getActivos(): Flow<List<Producto>>
 
-    // --- 🔹 Obtener producto por ID ---
+    // --- Obtener producto por ID ---
     @Query("SELECT * FROM productos WHERE idProducto = :id LIMIT 1")
     suspend fun getById(id: Int): Producto?
 
-    // --- 🔹 Eliminar producto por ID ---
+    // --- Eliminar producto por ID ---
     @Query("DELETE FROM productos WHERE idProducto = :id")
     suspend fun deleteById(id: Int)
 }

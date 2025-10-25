@@ -1,7 +1,5 @@
 package com.example.petcareconnect.data.repository
 
-
-
 import com.example.petcareconnect.data.db.dao.EstadoDao
 import com.example.petcareconnect.data.model.Estado
 import kotlinx.coroutines.flow.Flow
@@ -9,4 +7,8 @@ import kotlinx.coroutines.flow.Flow
 class EstadoRepository(private val estadoDao: EstadoDao) {
 
     fun getAllEstados(): Flow<List<Estado>> = estadoDao.getAllEstados()
+
+    suspend fun insert(estado: Estado) = estadoDao.insert(estado)
+
+    suspend fun getAllOnce(): List<Estado> = estadoDao.getAllOnce()
 }

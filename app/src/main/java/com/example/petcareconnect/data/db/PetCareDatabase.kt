@@ -1,33 +1,17 @@
 package com.example.petcareconnect.data.db
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.petcareconnect.R // 👈 necesario para usar imágenes locales
 import com.example.petcareconnect.data.db.dao.*
-import com.example.petcareconnect.data.db.dao.CategoriaDao
-import com.example.petcareconnect.data.db.dao.DetalleVentaDao
-import com.example.petcareconnect.data.db.dao.ProductoDao
-import com.example.petcareconnect.data.db.dao.TicketDao
-import com.example.petcareconnect.data.db.dao.VentaDao
 import com.example.petcareconnect.data.model.*
-import com.example.petcareconnect.data.model.Categoria
-import com.example.petcareconnect.data.model.DetalleVenta
-import com.example.petcareconnect.data.model.Estado
-import com.example.petcareconnect.data.model.Producto
-import com.example.petcareconnect.data.model.Ticket
-import com.example.petcareconnect.data.model.Usuario
-import com.example.petcareconnect.data.model.Venta
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/**
- * 🐾 PetCareDatabase
- * Base de datos principal de la aplicación PetCare Connect.
- * Contiene todas las entidades y expone los DAOs correspondientes.
- */
 @Database(
     entities = [
         Categoria::class,
@@ -38,12 +22,11 @@ import kotlinx.coroutines.launch
         Usuario::class,
         Ticket::class
     ],
-    version = 5, //  incrementar versión si cambias entidades
-    exportSchema = false //  desactiva exportación si no usas schemaLocation
+    version = 24, // ⬆️ subimos versión para recrear BD
+    exportSchema = false
 )
 abstract class PetCareDatabase : RoomDatabase() {
 
-    // --- DAOs disponibles ---
     abstract fun categoriaDao(): CategoriaDao
     abstract fun estadoDao(): EstadoDao
     abstract fun productoDao(): ProductoDao
@@ -56,9 +39,6 @@ abstract class PetCareDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: PetCareDatabase? = null
 
-        /**
-         * Obtiene o crea la instancia única de la base de datos.
-         */
         fun getDatabase(context: Context): PetCareDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -66,8 +46,8 @@ abstract class PetCareDatabase : RoomDatabase() {
                     PetCareDatabase::class.java,
                     "petcare_db"
                 )
-                    .addCallback(DatabaseCallback()) // Insertar datos iniciales
-                    .fallbackToDestructiveMigration() // ⚠️ recrea BD si cambias estructura
+                    .fallbackToDestructiveMigration() // 🔄 Regenera si cambia versión
+                    .addCallback(SeedDataCallback(context))
                     .build()
                 INSTANCE = instance
                 instance
@@ -76,24 +56,107 @@ abstract class PetCareDatabase : RoomDatabase() {
     }
 
     /**
-     * Callback que se ejecuta solo al crear la BD por primera vez.
-     * Inserta datos iniciales como los estados base.
+     * 🌱 Inserta datos iniciales al abrir la base de datos.
      */
-    private class DatabaseCallback : RoomDatabase.Callback() {
-        override fun onCreate(db: SupportSQLiteDatabase) {
-            super.onCreate(db)
+    private class SeedDataCallback(private val context: Context) : RoomDatabase.Callback() {
+        override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            super.onOpen(db)
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    db.execSQL("INSERT INTO estados (nombre) VALUES ('Activo')")
-                    db.execSQL("INSERT INTO estados (nombre) VALUES ('Inactivo')")
+                    val database = INSTANCE ?: return@launch
+                    val usuarioDao = database.usuarioDao()
+                    val categoriaDao = database.categoriaDao()
+                    val estadoDao = database.estadoDao()
+                    val productoDao = database.productoDao()
 
-                    // 🔹 Insertamos un usuario administrador por defecto
-                    db.execSQL("""
-                        INSERT INTO usuario (nombre, email, telefono, password, rol) 
-                        VALUES ('Admin', 'admin@petcare.cl', '999999999', 'admin123', 'ADMIN')
-                    """.trimIndent())
+                    // 👤 Usuarios base
+                    if (usuarioDao.getByEmail("admin@petcare.cl") == null) {
+                        usuarioDao.insert(
+                            Usuario(
+                                nombre = "Administrador",
+                                email = "admin@petcare.cl",
+                                telefono = "999999999",
+                                password = "Admin.123",
+                                rol = "ADMIN"
+                            )
+                        )
+                    }
+                    if (usuarioDao.getByEmail("cliente@petcare.cl") == null) {
+                        usuarioDao.insert(
+                            Usuario(
+                                nombre = "Cliente de Prueba",
+                                email = "cliente@petcare.cl",
+                                telefono = "888888888",
+                                password = "Cliente.123",
+                                rol = "CLIENTE"
+                            )
+                        )
+                    }
+
+                    // 🏷️ Categorías base
+                    val categoriasBase =
+                        listOf("Alimentos", "Accesorios", "Higiene", "Salud", "Juguetes")
+                    if (categoriaDao.getAllOnce().isEmpty()) {
+                        categoriasBase.forEach { categoriaDao.insert(Categoria(nombre = it)) }
+                        Log.i("PetCareDB", "✅ Categorías base creadas")
+                    }
+
+                    // ⚙️ Estados base
+                    if (estadoDao.getAllOnce().isEmpty()) {
+                        estadoDao.insert(Estado(idEstado = 1, nombre = "Activo"))
+                        estadoDao.insert(Estado(idEstado = 2, nombre = "Inactivo"))
+                        Log.i("PetCareDB", "✅ Estados base creados")
+                    }
+
+                    // 🐾 Productos base
+                    if (productoDao.getAllOnce().isEmpty()) {
+                        val categorias = categoriaDao.getAllOnce()
+                        val estadoActivo =
+                            estadoDao.getAllOnce().firstOrNull { it.nombre == "Activo" }?.idEstado
+                                ?: 1
+
+                        val alimentosId =
+                            categorias.firstOrNull { it.nombre == "Alimentos" }?.idCategoria ?: 1
+                        val accesoriosId =
+                            categorias.firstOrNull { it.nombre == "Accesorios" }?.idCategoria ?: 2
+                        val higieneId =
+                            categorias.firstOrNull { it.nombre == "Higiene" }?.idCategoria ?: 3
+
+                        val productosBase = listOf(
+                            Producto(
+                                nombre = "Alimento para Perro DogChow 3kg",
+                                precio = 15990.0,
+                                stock = 25,
+                                categoriaId = alimentosId,
+                                estadoId = estadoActivo,
+                                imagenResId = R.drawable.comida_perrodogchow
+                            ),
+                            Producto(
+                                nombre = "Juguete de Goma para Mascotas",
+                                precio = 4990.0,
+                                stock = 40,
+                                categoriaId = accesoriosId,
+                                estadoId = estadoActivo,
+                                imagenResId = R.drawable.juguete_goma
+                            ),
+                            Producto(
+                                nombre = "Shampoo para Gatos PelitoSuave",
+                                precio = 7990.0,
+                                stock = 20,
+                                categoriaId = higieneId,
+                                estadoId = estadoActivo,
+                                imagenResId = R.drawable.shampoo_gato
+                            )
+                        )
+
+                        productosBase.forEach { productoDao.insert(it) }
+                        Log.i("PetCareDB", "✅ Productos base creados con imágenes locales")
+                    }
+
+                    Log.i("PetCareDB", "🌱 Datos base cargados correctamente")
+
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("PetCareDB", "⚠️ Error al insertar datos base: ${e.message}")
                 }
             }
         }
