@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
         Usuario::class,
         Ticket::class
     ],
-    version = 4, // 🔹 incrementa versión si cambias entidades
+    version = 5, // 🔹 incrementa versión si cambias entidades
     exportSchema = false // 🔹 desactiva exportación si no usas schemaLocation
 )
 abstract class PetCareDatabase : RoomDatabase() {
