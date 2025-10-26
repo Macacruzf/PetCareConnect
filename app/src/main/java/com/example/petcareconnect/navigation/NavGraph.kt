@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,22 +12,21 @@ import kotlinx.coroutines.launch
 import com.example.petcareconnect.ui.components.*
 import com.example.petcareconnect.ui.screen.*
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
-import com.example.petcareconnect.data.db.PetCareDatabase
-import com.example.petcareconnect.data.repository.ProductoRepository
-import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
-import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
 
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
-    authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    authViewModel: AuthViewModel,
+    productoViewModel: ProductoViewModel
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val loginState by authViewModel.login.collectAsState()
+    val userRole by authViewModel.userRole.collectAsState()
+    val currentUser by authViewModel.currentUser.collectAsState()
 
-    // Rutas rápidas
+    // Navegaciones
     val goHome = { navController.navigate(Route.Home.path) }
     val goLogin = { navController.navigate(Route.Login.path) }
     val goRegister = { navController.navigate(Route.Register.path) }
@@ -74,80 +73,60 @@ fun AppNavGraph(
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-                //  HOME ACTUALIZADO (Muestra productos)
+                // 🏠 HOME — muestra productos y opciones según el rol
                 composable(Route.Home.path) {
-                    val context = LocalContext.current
-                    val db = remember {
-                        androidx.room.Room.databaseBuilder(
-                            context,
-                            PetCareDatabase::class.java,
-                            "petcare_db"
-                        ).build()
-                    }
-
-                    val productoRepo = remember { ProductoRepository(db.productoDao()) }
-                    val categoriaRepo = remember { CategoriaRepository(db.categoriaDao()) }
-                    val productoVm: ProductoViewModel =
-                        androidx.lifecycle.viewmodel.compose.viewModel(factory = ProductoViewModelFactory(productoRepo, categoriaRepo))
-                    val state by productoVm.state.collectAsState()
+                    val state by productoViewModel.state.collectAsState()
 
                     HomeScreen(
-                        rol = loginState.rol,
-                        productos = state.productos, // 🔹 pasa la lista de productos al Home
+                        rol = userRole,
+                        usuarioNombre = currentUser?.nombre,
+                        productos = state.productos,
                         onGoLogin = goLogin,
                         onGoRegister = goRegister,
                         onAgregarAlCarrito = { producto ->
-                            println("🛒 Producto agregado al carrito: ${producto.nombre}")
+                            println("🛒 Producto agregado: ${producto.nombre}")
                         },
                         onGoCategorias = goCategorias,
                         onGoUsuarios = goUsuarios,
                         onGoHistorial = goHistorial,
-                        onAgregarProducto = {
-                            //  Solo admin: redirige a la pantalla de productos
-                            navController.navigate(Route.Productos.path)
+                        onAgregarProducto = { goProductos() },
+                        onLogout = {
+                            authViewModel.logout()
+                            navController.navigate(Route.Home.path)
                         }
                     )
                 }
 
-                //  LOGIN
+                // 🔑 LOGIN
                 composable(Route.Login.path) {
                     LoginScreenVm(
-                        onLoginOkNavigateHome = goHome,
+                        viewModel = authViewModel,
+                        onLoginOkNavigateHome = {
+                            goHome()
+                        },
                         onGoRegister = goRegister
                     )
                 }
 
-                //  REGISTRO
+                // 📝 REGISTRO
                 composable(Route.Register.path) {
                     RegisterScreenVm(
+                        vm= authViewModel,
                         onRegisteredNavigateLogin = goLogin,
                         onGoLogin = goLogin
                     )
                 }
 
-                //  PRODUCTOS (vista admin)
+                // 🧺 PRODUCTOS (solo admin puede modificar)
                 composable(Route.Productos.path) {
-                    ProductoScreen(rol = loginState.rol)
+                    ProductoScreen(rol = userRole)
                 }
 
-                //  CATEGORÍAS
-                composable(Route.Categorias.path) {
-                    CategoriaScreen()
-                }
-
-                //  HISTORIAL DE VENTAS
-                composable(Route.HistorialVentas.path) {
-                    HistorialVentasScreen()
-                }
-
-                //  USUARIOS
-                composable(Route.Usuarios.path) {
-                    UsuarioScreen()
-                }
+                composable(Route.Categorias.path) { CategoriaScreen() }
+                composable(Route.HistorialVentas.path) { HistorialVentasScreen() }
+                composable(Route.Usuarios.path) { UsuarioScreen() }
             }
         }
     }
 }
-
-
 

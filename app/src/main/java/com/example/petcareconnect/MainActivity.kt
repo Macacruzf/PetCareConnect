@@ -4,40 +4,40 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.navigation.compose.rememberNavController
-import com.example.petcareconnect.navigation.AppNavGraph
 import com.example.petcareconnect.data.db.PetCareDatabase
 import com.example.petcareconnect.data.repository.UsuarioRepository
+import com.example.petcareconnect.data.repository.ProductoRepository
+import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 import com.example.petcareconnect.ui.viewmodel.AuthViewModelFactory
+import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
+import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
+import com.example.petcareconnect.ui.screen.AppRootScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Inicializamos la BD y el ViewModel
+        // ✅ Inicializa la base de datos
         val db = PetCareDatabase.getDatabase(applicationContext)
-        val userRepo = UsuarioRepository(db.usuarioDao())
-        val authViewModel = AuthViewModelFactory(userRepo).create(AuthViewModel::class.java)
 
+        // ✅ Crea los repositorios
+        val usuarioRepo = UsuarioRepository(db.usuarioDao())
+        val productoRepo = ProductoRepository(db.productoDao())
+        val categoriaRepo = CategoriaRepository(db.categoriaDao())
+
+        // ✅ Crea los ViewModels
+        val authViewModel = AuthViewModelFactory(usuarioRepo).create(AuthViewModel::class.java)
+        val productoViewModel =
+            ProductoViewModelFactory(productoRepo, categoriaRepo).create(ProductoViewModel::class.java)
+
+        // ✅ Renderiza la aplicación pasando los ViewModels
         setContent {
-            AppRoot(authViewModel)
+            AppRootScreen(
+                authViewModel = authViewModel,
+                productoViewModel = productoViewModel
+            )
         }
     }
 }
-
-@Composable
-fun AppRoot(authViewModel: AuthViewModel) {
-    val navController = rememberNavController()
-    MaterialTheme {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            AppNavGraph(navController = navController, authViewModel = authViewModel)
-        }
-    }
-}
-
-

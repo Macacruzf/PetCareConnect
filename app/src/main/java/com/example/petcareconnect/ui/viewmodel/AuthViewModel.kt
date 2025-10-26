@@ -33,7 +33,7 @@ data class RegisterUiState(
     val pass: String = "",
     val confirm: String = "",
     val fotoUri: String? = null,
-    val rol: String? = "CLIENTE", // ✅ agregado campo de rol
+    val rol: String? = "CLIENTE",
     val nameError: String? = null,
     val emailError: String? = null,
     val phoneError: String? = null,
@@ -69,6 +69,13 @@ class AuthViewModel(
 
     private val _register = MutableStateFlow(RegisterUiState())
     val register: StateFlow<RegisterUiState> = _register
+
+    // ✅ Estado global del usuario autenticado
+    private val _userRole = MutableStateFlow<String?>(null)
+    val userRole: StateFlow<String?> = _userRole
+
+    private val _currentUser = MutableStateFlow<Usuario?>(null)
+    val currentUser: StateFlow<Usuario?> = _currentUser
 
     // ----------------- LOGIN -----------------
     fun onLoginEmailChange(value: String) {
@@ -114,6 +121,13 @@ class AuthViewModel(
                         usuario = dbUser
                     )
                 }
+
+                // ✅ Guardar usuario global si el login fue exitoso
+                if (ok) {
+                    _currentUser.value = dbUser
+                    _userRole.value = rol
+                }
+
             } catch (e: Exception) {
                 _login.update {
                     it.copy(
@@ -127,6 +141,13 @@ class AuthViewModel(
 
     fun clearLoginResult() {
         _login.update { it.copy(success = false, errorMsg = null) }
+    }
+
+    // ✅ Cerrar sesión
+    fun logout() {
+        _currentUser.value = null
+        _userRole.value = null
+        _login.value = LoginUiState()
     }
 
     // ----------------- REGISTRO -----------------
@@ -158,12 +179,10 @@ class AuthViewModel(
         recomputeRegisterCanSubmit()
     }
 
-    // ✅ Nuevo: guardar foto seleccionada
     fun onFotoSelected(uri: String) {
         _register.update { it.copy(fotoUri = uri) }
     }
 
-    // ✅ Nuevo: cambiar rol
     fun onRolChange(newRol: String) {
         _register.update { it.copy(rol = newRol) }
     }
@@ -209,7 +228,7 @@ class AuthViewModel(
                         email = email,
                         telefono = phone,
                         password = pass,
-                        rol = rol, // ✅ ahora toma el rol seleccionado
+                        rol = rol,
                         fotoUri = fotoUri
                     )
                 )

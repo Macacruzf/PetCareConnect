@@ -28,32 +28,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil.compose.rememberAsyncImagePainter
-import com.example.petcareconnect.data.db.PetCareDatabase
-import com.example.petcareconnect.data.repository.UsuarioRepository
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
-import com.example.petcareconnect.ui.viewmodel.AuthViewModelFactory
 import java.io.File
 import java.io.FileOutputStream
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.room.Room
 
 @Composable
 fun RegisterScreenVm(
+    vm: AuthViewModel, // ✅ Se recibe el ViewModel global desde AppNavGraph
     onRegisteredNavigateLogin: () -> Unit,
     onGoLogin: () -> Unit
 ) {
-    val context = LocalContext.current
-    val db = remember {
-        Room.databaseBuilder(
-            context,
-            PetCareDatabase::class.java,
-            "petcare_db"
-        ).build()
-    }
-
-    val repository = remember { UsuarioRepository(db.usuarioDao()) }
-    val vm: AuthViewModel = viewModel(factory = AuthViewModelFactory(repository))
     val state by vm.register.collectAsStateWithLifecycle()
 
     if (state.success) {
@@ -89,10 +74,7 @@ fun RegisterScreenVm(
     )
 }
 
-// -------------------------------------------------------------
-// 🌟 REGISTER SCREEN UI COMPLETA CON SELECCIÓN DE ROL
-// -------------------------------------------------------------
-@OptIn(ExperimentalMaterial3Api::class) // ✅ Agregado para ocultar la advertencia
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegisterScreen(
     name: String,
@@ -140,9 +122,7 @@ private fun RegisterScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // -------------------------------------------------------------
-            // 📸 FOTO DE PERFIL CON MENÚ EMERGENTE
-            // -------------------------------------------------------------
+            // 📸 FOTO DE PERFIL
             var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
             val context = LocalContext.current
             var showMenu by remember { mutableStateOf(false) }
@@ -212,14 +192,12 @@ private fun RegisterScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // -------------------------------------------------------------
-            // 📝 CAMPOS DE TEXTO
-            // -------------------------------------------------------------
+            // CAMPOS DE FORMULARIO
             RegisterField("Nombre completo", name, onNameChange, nameError)
             RegisterField("Correo electrónico", email, onEmailChange, emailError, KeyboardType.Email)
             RegisterField("Teléfono", phone, onPhoneChange, phoneError, KeyboardType.Number)
 
-            // 🔹 Campo de selección de Rol
+            // Selección de rol
             ExposedDropdownMenuBox(
                 expanded = expandedRol,
                 onExpandedChange = { expandedRol = !expandedRol }
@@ -229,7 +207,9 @@ private fun RegisterScreen(
                     onValueChange = {},
                     label = { Text("Rol") },
                     readOnly = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRol) }
                 )
 
@@ -255,13 +235,13 @@ private fun RegisterScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // -------------------------------------------------------------
-            // 🔘 BOTÓN DE REGISTRO
-            // -------------------------------------------------------------
+            // BOTÓN REGISTRARSE
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit && !isSubmitting,
-                modifier = Modifier.fillMaxWidth().height(50.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -285,11 +265,14 @@ private fun RegisterScreen(
     }
 }
 
-// -------------------------------------------------------------
-// 🧩 CAMPOS REUTILIZABLES
-// -------------------------------------------------------------
 @Composable
-fun RegisterField(label: String, value: String, onChange: (String) -> Unit, error: String?, type: KeyboardType = KeyboardType.Text) {
+fun RegisterField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    error: String?,
+    type: KeyboardType = KeyboardType.Text
+) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -304,7 +287,14 @@ fun RegisterField(label: String, value: String, onChange: (String) -> Unit, erro
 }
 
 @Composable
-fun PasswordField(label: String, value: String, onChange: (String) -> Unit, error: String?, visible: Boolean, onToggle: () -> Unit) {
+fun PasswordField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    error: String?,
+    visible: Boolean,
+    onToggle: () -> Unit
+) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -323,7 +313,7 @@ fun PasswordField(label: String, value: String, onChange: (String) -> Unit, erro
     Spacer(Modifier.height(8.dp))
 }
 
-// GUARDAR FOTO
+// ✅ Guardar foto localmente (cámara)
 fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
     val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.png")
     FileOutputStream(file).use {
