@@ -23,12 +23,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.petcareconnect.R
 import com.example.petcareconnect.data.model.Producto
+import com.example.petcareconnect.data.model.Categoria
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     rol: String?,
     usuarioNombre: String?,
     productos: List<Producto>,
+    categorias: List<Categoria> = emptyList(), // ahora recibe las categorías
     onGoLogin: () -> Unit,
     onGoRegister: () -> Unit,
     onAgregarAlCarrito: (Producto) -> Unit,
@@ -52,6 +55,18 @@ fun HomeScreen(
     val isInvitado = rol.isNullOrEmpty() || rol == "INVITADO"
 
     var selectedProducto by remember { mutableStateOf<Producto?>(null) }
+
+    // Estado del filtro de categoría
+    var categoriaSeleccionada by remember { mutableStateOf("Todas") }
+    var expandedFiltro by remember { mutableStateOf(false) }
+
+    //  Filtrado dinámico
+    val productosFiltrados = remember(productos, categoriaSeleccionada) {
+        if (categoriaSeleccionada == "Todas") productos
+        else productos.filter { p ->
+            categorias.firstOrNull { it.idCategoria == p.categoriaId }?.nombre == categoriaSeleccionada
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -92,6 +107,47 @@ fun HomeScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // ---------- FILTRO DE CATEGORÍAS ----------
+            ExposedDropdownMenuBox(
+                expanded = expandedFiltro,
+                onExpandedChange = { expandedFiltro = !expandedFiltro }
+            ) {
+                OutlinedTextField(
+                    value = categoriaSeleccionada,
+                    onValueChange = {},
+                    label = { Text("Filtrar por categoría") },
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expandedFiltro,
+                    onDismissRequest = { expandedFiltro = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Todas") },
+                        onClick = {
+                            categoriaSeleccionada = "Todas"
+                            expandedFiltro = false
+                        }
+                    )
+                    categorias.forEach { categoria ->
+                        DropdownMenuItem(
+                            text = { Text(categoria.nombre) },
+                            onClick = {
+                                categoriaSeleccionada = categoria.nombre
+                                expandedFiltro = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
                 text = "Productos disponibles",
                 style = MaterialTheme.typography.titleLarge.copy(
@@ -109,7 +165,7 @@ fun HomeScreen(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(productos) { producto ->
+                items(productosFiltrados) { producto ->
                     ProductoCard(
                         producto = producto,
                         isAdmin = isAdmin,

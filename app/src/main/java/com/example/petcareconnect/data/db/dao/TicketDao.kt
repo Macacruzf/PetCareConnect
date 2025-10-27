@@ -10,12 +10,9 @@ interface TicketDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(ticket: Ticket)
 
-    @Query("SELECT * FROM tickets ORDER BY idTicket DESC")
-    fun getAllTickets(): Flow<List<Ticket>>
+    @Query("SELECT * FROM tickets WHERE idProducto = :idProducto ORDER BY fecha DESC")
+    fun getTicketsByProducto(idProducto: Int): Flow<List<Ticket>>
 
-    @Query("UPDATE tickets SET estado = :nuevoEstado WHERE idTicket = :id")
-    suspend fun updateEstado(id: Int, nuevoEstado: String)
-
-    @Delete
-    suspend fun delete(ticket: Ticket)
+    @Query("DELETE FROM tickets WHERE idTicket = :idTicket")
+    suspend fun deleteTicket(idTicket: Int)
 }

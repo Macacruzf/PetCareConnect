@@ -6,11 +6,9 @@ import kotlinx.coroutines.flow.Flow
 
 class TicketRepository(private val dao: TicketDao) {
 
-    fun getAllTickets(): Flow<List<Ticket>> = dao.getAllTickets()
+    fun getTicketsByProducto(idProducto: Int): Flow<List<Ticket>> = dao.getTicketsByProducto(idProducto)
 
     suspend fun insert(ticket: Ticket) = dao.insert(ticket)
 
-    suspend fun updateEstado(id: Int, estado: String) = dao.updateEstado(id, estado)
-
-    suspend fun delete(ticket: Ticket) = dao.delete(ticket)
+    suspend fun delete(id: Int) = dao.deleteTicket(id)
 }

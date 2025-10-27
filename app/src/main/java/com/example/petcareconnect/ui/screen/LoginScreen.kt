@@ -18,7 +18,7 @@ import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreenVm(
-    viewModel: AuthViewModel,              // ✅ ahora recibe el AuthViewModel directamente
+    viewModel: AuthViewModel,              //  ahora recibe el AuthViewModel directamente
     onLoginOkNavigateHome: () -> Unit,
     onGoRegister: () -> Unit
 ) {

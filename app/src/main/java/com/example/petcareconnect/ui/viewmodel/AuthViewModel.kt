@@ -224,7 +224,7 @@ class AuthViewModel(
 
                 repository?.insert(
                     Usuario(
-                        nombre = name,
+                        nombreUsuario = name,
                         email = email,
                         telefono = phone,
                         password = pass,

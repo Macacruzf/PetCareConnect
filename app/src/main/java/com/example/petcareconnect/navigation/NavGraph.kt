@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -22,11 +21,11 @@ fun AppNavGraph(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val loginState by authViewModel.login.collectAsState()
+
     val userRole by authViewModel.userRole.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    // Navegaciones
+    // --- Navegaciones ---
     val goHome = { navController.navigate(Route.Home.path) }
     val goLogin = { navController.navigate(Route.Login.path) }
     val goRegister = { navController.navigate(Route.Register.path) }
@@ -67,20 +66,35 @@ fun AppNavGraph(
                 )
             }
         ) { innerPadding ->
+
+            // --- NAVEGACIÓN PRINCIPAL ---
             NavHost(
                 navController = navController,
                 startDestination = Route.Home.path,
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-                // 🏠 HOME — muestra productos y opciones según el rol
+                // 🏠 HOME — muestra productos y categorías
                 composable(Route.Home.path) {
                     val state by productoViewModel.state.collectAsState()
 
+                    // ✅ Cargar productos y categorías al abrir el Home
+                    LaunchedEffect(Unit) {
+                        if (state.productos.isEmpty()) {
+                            println("📦 Cargando productos iniciales desde Home...")
+                            productoViewModel.loadProductos()
+                        }
+                        if (state.categorias.isEmpty()) {
+                            println("📚 Cargando categorías iniciales desde Home...")
+                            productoViewModel.recargarCategoriasManualmente()
+                        }
+                    }
+
                     HomeScreen(
                         rol = userRole,
-                        usuarioNombre = currentUser?.nombre,
+                        usuarioNombre = currentUser?.nombreUsuario,
                         productos = state.productos,
+                        categorias = state.categorias,
                         onGoLogin = goLogin,
                         onGoRegister = goRegister,
                         onAgregarAlCarrito = { producto ->
@@ -97,36 +111,38 @@ fun AppNavGraph(
                     )
                 }
 
-                // 🔑 LOGIN
+                // LOGIN
                 composable(Route.Login.path) {
                     LoginScreenVm(
                         viewModel = authViewModel,
-                        onLoginOkNavigateHome = {
-                            goHome()
-                        },
+                        onLoginOkNavigateHome = { goHome() },
                         onGoRegister = goRegister
                     )
                 }
 
-                // 📝 REGISTRO
+                // REGISTRO
                 composable(Route.Register.path) {
                     RegisterScreenVm(
-                        vm= authViewModel,
+                        vm = authViewModel,
                         onRegisteredNavigateLogin = goLogin,
                         onGoLogin = goLogin
                     )
                 }
 
-                // 🧺 PRODUCTOS (solo admin puede modificar)
+                // PRODUCTOS (solo admin puede modificar)
                 composable(Route.Productos.path) {
                     ProductoScreen(rol = userRole)
                 }
 
+                //  CATEGORÍAS
                 composable(Route.Categorias.path) { CategoriaScreen() }
+
+                // HISTORIAL DE VENTAS
                 composable(Route.HistorialVentas.path) { HistorialVentasScreen() }
+
+                //  USUARIOS
                 composable(Route.Usuarios.path) { UsuarioScreen() }
             }
         }
     }
 }
-

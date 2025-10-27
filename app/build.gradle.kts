@@ -61,25 +61,27 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     //librerias nuevas
-    //  Navegación Compose
+    // --- Navegación Compose ---
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // ViewModel + Lifecycle + StateFlow
+    // --- Material 3 (versión estable) ---
+    implementation("androidx.compose.material3:material3:1.2.1")
+
+    // --- ViewModel + Lifecycle + StateFlow ---
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
-    // Corrutinas (para ViewModel y Room)
+    // --- Corrutinas ---
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    //  Material Icons (para íconos Visibility / Delete / Add, etc.)
+    // --- Material Icons Extendidos ---
     implementation("androidx.compose.material:material-icons-extended")
 
-    //  ROOM (Base de datos local)
+    // --- Room (Base de datos local) ---
     implementation("androidx.room:room-runtime:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
 
-    //
+    // --- Carga de imágenes con Coil ---
     implementation("io.coil-kt:coil-compose:2.4.0")
-
 }

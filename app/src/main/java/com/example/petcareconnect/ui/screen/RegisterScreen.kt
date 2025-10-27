@@ -35,7 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun RegisterScreenVm(
-    vm: AuthViewModel, // ✅ Se recibe el ViewModel global desde AppNavGraph
+    vm: AuthViewModel,
     onRegisteredNavigateLogin: () -> Unit,
     onGoLogin: () -> Unit
 ) {
@@ -122,7 +122,7 @@ private fun RegisterScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // 📸 FOTO DE PERFIL
+            //  FOTO DE PERFIL
             var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
             val context = LocalContext.current
             var showMenu by remember { mutableStateOf(false) }
@@ -313,7 +313,7 @@ fun PasswordField(
     Spacer(Modifier.height(8.dp))
 }
 
-// ✅ Guardar foto localmente (cámara)
+// Guardar foto localmente (cámara)
 fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
     val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.png")
     FileOutputStream(file).use {

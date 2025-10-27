@@ -84,7 +84,7 @@ fun VentaScreen() {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = detalle.nombre, // ✅ ya accede al nombre
+                                    text = detalle.nombre, // ya accede al nombre
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -132,7 +132,7 @@ fun VentaScreen() {
                 )
 
                 Button(
-                    onClick = { vm.guardarVenta() }, // ✅ ahora sin parámetro
+                    onClick = { vm.guardarVenta() }, // ahora sin parámetro
                     enabled = state.detalles.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {

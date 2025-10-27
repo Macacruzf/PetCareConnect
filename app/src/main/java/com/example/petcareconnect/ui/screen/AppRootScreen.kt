@@ -9,7 +9,7 @@ import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 
 /*
- * 🌟 AppRootScreen conecta los ViewModels principales con la navegación general.
+ *  AppRootScreen conecta los ViewModels principales con la navegación general.
  */
 @Composable
 fun AppRootScreen(
