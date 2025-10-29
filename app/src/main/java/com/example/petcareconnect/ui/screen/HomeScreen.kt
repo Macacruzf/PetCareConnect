@@ -25,24 +25,30 @@ import com.example.petcareconnect.R
 import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.model.Categoria
 
+/*
+ * Pantalla principal (Home) de PetCare Connect.
+ * Muestra los productos disponibles, un filtro por categoría
+ * y menús diferenciados según el tipo de usuario (admin, cliente o invitado).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    rol: String?,
-    usuarioNombre: String?,
-    productos: List<Producto>,
-    categorias: List<Categoria> = emptyList(), // ahora recibe las categorías
-    onGoLogin: () -> Unit,
-    onGoRegister: () -> Unit,
-    onAgregarAlCarrito: (Producto) -> Unit,
-    onGoCategorias: () -> Unit,
-    onGoUsuarios: () -> Unit,
-    onGoHistorial: () -> Unit,
-    onAgregarProducto: () -> Unit,
-    onGoCarrito: () -> Unit = {},
-    onGoPedidos: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    rol: String?,                                // Rol del usuario actual (ADMIN, CLIENTE, INVITADO)
+    usuarioNombre: String?,                      // Nombre del usuario conectado
+    productos: List<Producto>,                   // Lista de productos cargados
+    categorias: List<Categoria> = emptyList(),   // Lista de categorías para el filtro
+    onGoLogin: () -> Unit,                       // Navega a la pantalla de login
+    onGoRegister: () -> Unit,                    // Navega al registro
+    onAgregarAlCarrito: (Producto) -> Unit,      // Acción al agregar un producto al carrito
+    onGoCategorias: () -> Unit,                  // Navega a gestión de categorías (admin)
+    onGoUsuarios: () -> Unit,                    // Navega a gestión de usuarios (admin)
+    onGoHistorial: () -> Unit,                   // Navega al historial de ventas (admin)
+    onAgregarProducto: () -> Unit,               // Acción para agregar un nuevo producto
+    onGoCarrito: () -> Unit = {},                // Navega al carrito (cliente)
+    onGoPedidos: () -> Unit = {},                // Navega al historial de pedidos (cliente)
+    onLogout: () -> Unit = {}                    // Cierra sesión
 ) {
+    // Paleta de colores personalizada
     val fondo = Color(0xFFF5F5F5)
     val verde = Color(0xFF4CAF50)
     val azul = Color(0xFF2196F3)
@@ -50,17 +56,17 @@ fun HomeScreen(
     val gris = Color(0xFF607D8B)
     val naranja = Color(0xFFFF9800)
 
+    // Determinación de rol del usuario
     val isAdmin = rol == "ADMIN"
     val isCliente = rol == "CLIENTE"
     val isInvitado = rol.isNullOrEmpty() || rol == "INVITADO"
 
+    // Estado de selección y filtrado de productos
     var selectedProducto by remember { mutableStateOf<Producto?>(null) }
-
-    // Estado del filtro de categoría
     var categoriaSeleccionada by remember { mutableStateOf("Todas") }
     var expandedFiltro by remember { mutableStateOf(false) }
 
-    //  Filtrado dinámico
+    // Filtrado dinámico de productos según la categoría seleccionada
     val productosFiltrados = remember(productos, categoriaSeleccionada) {
         if (categoriaSeleccionada == "Todas") productos
         else productos.filter { p ->
@@ -68,44 +74,50 @@ fun HomeScreen(
         }
     }
 
+    // Contenedor principal de toda la vista
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(fondo)
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        contentAlignment = Alignment.TopCenter
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            // ---------- LOGO ----------
-            Image(
-                painter = painterResource(id = R.drawable.ic_petcare_logo),
-                contentDescription = "Logo PetCare Connect",
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(Color.LightGray),
-                contentScale = ContentScale.Crop
-            )
-
-            Text(
-                text = "PetCare Connect",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = verde
+            // ---------- ENCABEZADO ----------
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                // Logo de la aplicación
+                Image(
+                    painter = painterResource(id = R.drawable.ic_petcare_logo),
+                    contentDescription = "Logo PetCare Connect",
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
                 )
-            )
 
-            when {
-                isAdmin -> Text("Bienvenido $usuarioNombre 👑", color = Color(0xFF333333))
-                isCliente -> Text("Hola $usuarioNombre 🐶", color = Color(0xFF333333))
-                else -> Text("Tu tienda veterinaria en un solo lugar 🐾", color = Color(0xFF333333))
+                // Título y saludo
+                Column {
+                    Text(
+                        text = "PetCare Connect",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = verde
+                        )
+                    )
+                    when {
+                        isAdmin -> Text("Bienvenido $usuarioNombre", color = Color(0xFF333333))
+                        isCliente -> Text("Hola $usuarioNombre", color = Color(0xFF333333))
+                        else -> Text("Tu tienda veterinaria", color = Color(0xFF333333))
+                    }
+                }
             }
-
-            Spacer(Modifier.height(12.dp))
 
             // ---------- FILTRO DE CATEGORÍAS ----------
             ExposedDropdownMenuBox(
@@ -117,53 +129,48 @@ fun HomeScreen(
                     onValueChange = {},
                     label = { Text("Filtrar por categoría") },
                     readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
-
                 ExposedDropdownMenu(
                     expanded = expandedFiltro,
                     onDismissRequest = { expandedFiltro = false }
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Todas") },
-                        onClick = {
-                            categoriaSeleccionada = "Todas"
-                            expandedFiltro = false
-                        }
-                    )
+                    DropdownMenuItem(text = { Text("Todas") }, onClick = {
+                        categoriaSeleccionada = "Todas"
+                        expandedFiltro = false
+                    })
                     categorias.forEach { categoria ->
-                        DropdownMenuItem(
-                            text = { Text(categoria.nombre) },
-                            onClick = {
-                                categoriaSeleccionada = categoria.nombre
-                                expandedFiltro = false
-                            }
-                        )
+                        DropdownMenuItem(text = { Text(categoria.nombre) }, onClick = {
+                            categoriaSeleccionada = categoria.nombre
+                            expandedFiltro = false
+                        })
                     }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
+            // ---------- LISTADO DE PRODUCTOS ----------
             Text(
                 text = "Productos disponibles",
-                style = MaterialTheme.typography.titleLarge.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = azul
                 ),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Start
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
             )
 
-            // ---------- LISTADO DE PRODUCTOS ----------
+            // Lista desplazable con los productos filtrados
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(productosFiltrados) { producto ->
                     ProductoCard(
@@ -177,32 +184,55 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // ---------- MENÚ ADMIN ----------
+            // ---------- MENÚ ADMINISTRADOR ----------
             if (isAdmin) {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(onClick = onGoCategorias, colors = ButtonDefaults.buttonColors(containerColor = azul)) {
-                        Text("Categorías")
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(onClick = onGoCategorias, colors = ButtonDefaults.buttonColors(containerColor = azul)) {
+                            Text("Categorías")
+                        }
+                        Button(onClick = onGoUsuarios, colors = ButtonDefaults.buttonColors(containerColor = morado)) {
+                            Text("Usuarios")
+                        }
+                        Button(onClick = onGoHistorial, colors = ButtonDefaults.buttonColors(containerColor = gris)) {
+                            Text("Historial")
+                        }
                     }
-                    Button(onClick = onGoUsuarios, colors = ButtonDefaults.buttonColors(containerColor = morado)) {
-                        Text("Usuarios")
-                    }
-                    Button(onClick = onGoHistorial, colors = ButtonDefaults.buttonColors(containerColor = gris)) {
-                        Text("Historial")
-                    }
-                }
 
-                Spacer(Modifier.height(12.dp))
-                ExtendedFloatingActionButton(
-                    onClick = onAgregarProducto,
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Agregar producto") },
-                    text = { Text("Nuevo producto") },
-                    containerColor = verde
-                )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(onClick = onGoPedidos, colors = ButtonDefaults.buttonColors(containerColor = azul)) {
+                            Text("Ver pedidos", color = Color.White)
+                        }
+                        OutlinedButton(
+                            onClick = onLogout,
+                            modifier = Modifier.height(42.dp).width(160.dp)
+                        ) {
+                            Icon(Icons.Default.Logout, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Cerrar sesión")
+                        }
+                    }
+
+                    // Botón flotante para agregar productos (solo admin)
+                    ExtendedFloatingActionButton(
+                        onClick = onAgregarProducto,
+                        icon = { Icon(Icons.Default.Add, contentDescription = "Agregar producto") },
+                        text = { Text("Nuevo producto") },
+                        containerColor = verde
+                    )
+                }
             }
 
             // ---------- MENÚ CLIENTE ----------
@@ -211,7 +241,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(onClick = onGoCarrito, colors = ButtonDefaults.buttonColors(containerColor = naranja)) {
+                    Button(
+                        onClick = onGoCarrito,
+                        colors = ButtonDefaults.buttonColors(containerColor = naranja)
+                    ) {
                         Icon(Icons.Default.ShoppingCart, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
                         Text("Mi carrito")
@@ -219,11 +252,17 @@ fun HomeScreen(
                     Button(onClick = onGoPedidos, colors = ButtonDefaults.buttonColors(containerColor = azul)) {
                         Text("Mis pedidos")
                     }
-                    OutlinedButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Cerrar sesión")
-                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onLogout,
+                    modifier = Modifier.height(42.dp).width(160.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF444444))
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Cerrar sesión")
                 }
             }
 
@@ -233,15 +272,19 @@ fun HomeScreen(
                     OutlinedButton(
                         onClick = onGoLogin,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = verde)
-                    ) { Text("Iniciar sesión") }
-
+                    ) {
+                        Text("Iniciar sesión")
+                    }
                     Button(
                         onClick = onGoRegister,
                         colors = ButtonDefaults.buttonColors(containerColor = naranja)
-                    ) { Text("Registrarse", color = Color.White) }
+                    ) {
+                        Text("Registrarse", color = Color.White)
+                    }
                 }
             }
 
+            // Pie de página con información general
             Text(
                 text = "© PetCare Connect 2025\nSolo retiro en tienda",
                 style = MaterialTheme.typography.bodySmall.copy(
@@ -249,11 +292,11 @@ fun HomeScreen(
                     textAlign = TextAlign.Center
                 ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 12.dp)
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
 
-        // ---------- DIÁLOGO DETALLE PRODUCTO ----------
+        // ---------- DETALLE DE PRODUCTO ----------
         if (selectedProducto != null) {
             ProductoDetalleDialog(
                 producto = selectedProducto!!,

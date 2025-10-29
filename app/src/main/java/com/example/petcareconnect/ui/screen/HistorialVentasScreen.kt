@@ -1,134 +1,104 @@
 package com.example.petcareconnect.ui.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.room.Room
-import com.example.petcareconnect.data.db.PetCareDatabase
-import com.example.petcareconnect.data.model.DetalleVenta
-import com.example.petcareconnect.data.model.Venta
-import com.example.petcareconnect.data.repository.DetalleVentaRepository
-import com.example.petcareconnect.data.repository.VentaRepository
-import com.example.petcareconnect.ui.viewmodel.VentaViewModel
-import com.example.petcareconnect.ui.viewmodel.VentaViewModelFactory
-import kotlinx.coroutines.launch
+import com.example.petcareconnect.ui.viewmodel.PedidosViewModel
 
+/*
+ * Pantalla que muestra el historial de ventas registradas.
+ * Su propósito es permitir la revisión de pedidos o compras ya realizadas,
+ * mostrando detalles como fecha, método de pago y monto total.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistorialVentasScreen() {
-    val context = LocalContext.current
+fun HistorialVentasScreen(
+    pedidosViewModel: PedidosViewModel = viewModel(), // ViewModel que administra los datos de ventas
+    onVolver: () -> Unit = {}                         // Acción al presionar el botón de retroceso
+) {
+    // Estado observable que contiene la lista de ventas registradas
+    val historial by pedidosViewModel.historialVentas.collectAsState()
 
-    // --- Instanciamos BD y repos ---
-    val db = remember {
-        Room.databaseBuilder(
-            context,
-            PetCareDatabase::class.java,
-            "petcare_db"
-        ).build()
-    }
-
-    val ventaRepo = remember { VentaRepository(db.ventaDao()) }
-    val detalleRepo = remember { DetalleVentaRepository(db.detalleVentaDao()) }
-    val vm: VentaViewModel = viewModel(factory = VentaViewModelFactory(ventaRepo, detalleRepo))
-    val state by vm.state.collectAsState()
-
-    var ventaSeleccionada by remember { mutableStateOf<Venta?>(null) }
-    var detallesVenta by remember { mutableStateOf<List<DetalleVenta>>(emptyList()) }
-
-    val scope = rememberCoroutineScope()
-
-    // --- Pantalla principal ---
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(16.dp)
-    ) {
-        Column {
-            Text(
-                text = "Historial de Ventas",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+    // Estructura principal de la pantalla
+    Scaffold(
+        // Barra superior de navegación
+        topBar = {
+            TopAppBar(
+                title = { Text("Historial de Ventas") },
+                navigationIcon = {
+                    // Botón de retroceso para volver a la pantalla anterior
+                    IconButton(onClick = onVolver) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                }
             )
-            Spacer(Modifier.height(16.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f)
-            ) {
-                items(state.ventas) { venta ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+        }
+    ) { innerPadding ->
+        // Contenedor principal con alineación superior
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            // Si no hay ventas registradas, se muestra un mensaje informativo
+            if (historial.isEmpty()) {
+                Text(
+                    text = "No hay ventas registradas aún.",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            } else {
+                // Lista vertical que muestra cada venta registrada
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Por cada venta en el historial, se genera una tarjeta informativa
+                    items(historial) { venta ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF8F8F8) // Fondo claro del card
+                            ),
+                            elevation = CardDefaults.cardElevation(6.dp) // Sombra con profundidad
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Fecha: ${venta.fecha}", fontWeight = FontWeight.SemiBold)
-                                Text("Cliente: ${venta.cliente}")
-                                Text("Total: $${venta.total}")
-                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                // Título con el número de venta
+                                Text(
+                                    text = "Venta #${venta.idVenta}",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = Color(0xFF2196F3) // Azul representativo de PetCare Connect
+                                )
 
-                            IconButton(onClick = {
-                                ventaSeleccionada = venta
-                                scope.launch {
-                                    detallesVenta = detalleRepo.getByVentaId(venta.idVenta)
-                                }
-                            }) {
-                                Icon(Icons.Default.Info, contentDescription = "Ver detalle")
+                                Spacer(Modifier.height(6.dp))
+
+                                // Información detallada de la venta
+                                Text("Fecha: ${venta.fecha}")
+                                Text("Método de pago: ${venta.metodoPago}")
+                                Text("Total: $${String.format("%.2f", venta.total)}")
                             }
                         }
                     }
                 }
             }
         }
-
-        // --- Diálogo con detalles de venta seleccionada ---
-        if (ventaSeleccionada != null) {
-            AlertDialog(
-                onDismissRequest = { ventaSeleccionada = null },
-                confirmButton = {
-                    TextButton(onClick = { ventaSeleccionada = null }) {
-                        Text("Cerrar")
-                    }
-                },
-                title = { Text("Detalles de venta") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Cliente: ${ventaSeleccionada?.cliente}", fontWeight = FontWeight.SemiBold)
-                        Text("Fecha: ${ventaSeleccionada?.fecha}")
-                        Text("Total: $${ventaSeleccionada?.total}")
-                        Divider()
-                        Text("Productos:", fontWeight = FontWeight.Bold)
-
-                        if (detallesVenta.isEmpty()) {
-                            Text("No hay detalles registrados para esta venta.")
-                        } else {
-                            detallesVenta.forEach { d ->
-                                Text("- ${d.nombre} (x${d.cantidad}) — $${d.subtotal}")
-                            }
-                        }
-                    }
-                }
-            )
-        }
     }
 }
-

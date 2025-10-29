@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
         Usuario::class,
         Ticket::class
     ],
-    version = 27, // ⬆ sube versión para forzar recreación de BD
+    version = 28, // ⬆ sube versión para forzar recreación de BD
     exportSchema = false
 )
 abstract class PetCareDatabase : RoomDatabase() {

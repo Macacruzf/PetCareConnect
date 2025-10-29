@@ -22,31 +22,52 @@ import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModel
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModelFactory
 
+/*
+ * Pantalla de gestión de categorías de productos.
+ * Permite crear, listar, editar y eliminar categorías almacenadas en la base de datos local.
+ */
 @Composable
 fun CategoriaScreen() {
     val context = LocalContext.current
+
+    // Inicialización de la base de datos Room de forma persistente.
+    // remember evita que se reconstruya en cada recomposición.
     val db = remember {
         Room.databaseBuilder(
             context,
             PetCareDatabase::class.java,
             "petcare_db"
-        ).fallbackToDestructiveMigration().build()
+        )
+            .fallbackToDestructiveMigration() // Permite recrear la BD si cambia la estructura
+            .build()
     }
+
+    // Crea un repositorio para acceder al DAO de categorías
     val repository = remember { CategoriaRepository(db.categoriaDao()) }
+
+    // Instancia del ViewModel asociado a esta pantalla, utilizando la fábrica personalizada
     val vm: CategoriaViewModel = viewModel(factory = CategoriaViewModelFactory(repository))
+
+    // Estado observable del ViewModel (categorías, campo de texto, errores, etc.)
     val state by vm.state.collectAsState()
 
+    // Variables de control del diálogo de edición
     var editDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var editNombre by remember { mutableStateOf("") }
 
+    // Estructura principal de la pantalla con un botón flotante
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { vm.insertCategoria() },
+                onClick = { vm.insertCategoria() }, // Inserta una nueva categoría
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Agregar categoría", tint = Color.White)
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = "Agregar categoría",
+                    tint = Color.White
+                )
             }
         }
     ) { padding ->
@@ -56,6 +77,7 @@ fun CategoriaScreen() {
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            // Título de la pantalla
             Text(
                 text = "Gestión de Categorías",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
@@ -63,13 +85,15 @@ fun CategoriaScreen() {
             )
             Spacer(Modifier.height(16.dp))
 
-            // Campo de nueva categoría
+            // Campo de texto para ingresar una nueva categoría
             OutlinedTextField(
                 value = state.nombre,
                 onValueChange = vm::onNombreChange,
                 label = { Text("Nueva categoría") },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Mensaje de error si el campo está vacío o inválido
             state.errorMsg?.let { msg ->
                 Text(
                     text = msg,
@@ -77,9 +101,10 @@ fun CategoriaScreen() {
                     style = MaterialTheme.typography.labelSmall
                 )
             }
+
             Spacer(Modifier.height(16.dp))
 
-            // Listado
+            // Lista de categorías almacenadas
             LazyColumn {
                 items(state.categorias) { cat ->
                     Card(
@@ -94,16 +119,33 @@ fun CategoriaScreen() {
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(cat.nombre, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            // Nombre de la categoría
+                            Text(
+                                cat.nombre,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            // Botón para abrir el diálogo de edición
                             IconButton(onClick = {
                                 editingId = cat.idCategoria
                                 editNombre = cat.nombre
                                 editDialog = true
                             }) {
-                                Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.secondary)
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = "Editar",
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
                             }
+
+                            // Botón para eliminar una categoría
                             IconButton(onClick = { vm.deleteCategoria(cat.idCategoria) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Eliminar",
+                                    tint = Color.Red
+                                )
                             }
                         }
                     }
@@ -111,7 +153,7 @@ fun CategoriaScreen() {
             }
         }
 
-        // Diálogo de edición
+        // Diálogo para editar una categoría existente
         if (editDialog) {
             AlertDialog(
                 onDismissRequest = { editDialog = false },
@@ -126,6 +168,7 @@ fun CategoriaScreen() {
                 },
                 confirmButton = {
                     Button(onClick = {
+                        // Actualiza la categoría en base de datos
                         if (editingId != null) {
                             vm.updateCategoria(editingId!!, editNombre)
                         }

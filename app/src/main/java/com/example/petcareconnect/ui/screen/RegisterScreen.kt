@@ -33,6 +33,9 @@ import java.io.File
 import java.io.FileOutputStream
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+// -----------------------------------------------------------
+// RegisterScreenVm: versión con ViewModel conectado
+// -----------------------------------------------------------
 @Composable
 fun RegisterScreenVm(
     vm: AuthViewModel,
@@ -40,6 +43,11 @@ fun RegisterScreenVm(
     onGoLogin: () -> Unit
 ) {
     val state by vm.register.collectAsStateWithLifecycle()
+
+    // Siempre se fuerza el rol CLIENTE
+    LaunchedEffect(Unit) {
+        vm.onRolChange("CLIENTE")
+    }
 
     if (state.success) {
         vm.clearRegisterResult()
@@ -53,7 +61,6 @@ fun RegisterScreenVm(
         pass = state.pass,
         confirm = state.confirm,
         fotoUri = state.fotoUri,
-        selectedRol = state.rol ?: "CLIENTE",
         nameError = state.nameError,
         emailError = state.emailError,
         phoneError = state.phoneError,
@@ -68,12 +75,14 @@ fun RegisterScreenVm(
         onPassChange = vm::onRegisterPassChange,
         onConfirmChange = vm::onConfirmChange,
         onFotoSelected = vm::onFotoSelected,
-        onRolChange = vm::onRolChange,
         onSubmit = vm::submitRegister,
         onGoLogin = onGoLogin
     )
 }
 
+// -----------------------------------------------------------
+// RegisterScreen: pantalla de registro sin campo de Rol
+// -----------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegisterScreen(
@@ -83,7 +92,6 @@ private fun RegisterScreen(
     pass: String,
     confirm: String,
     fotoUri: String?,
-    selectedRol: String,
     nameError: String?,
     emailError: String?,
     phoneError: String?,
@@ -98,14 +106,11 @@ private fun RegisterScreen(
     onPassChange: (String) -> Unit,
     onConfirmChange: (String) -> Unit,
     onFotoSelected: (String) -> Unit,
-    onRolChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onGoLogin: () -> Unit
 ) {
     var showPass by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
-    var expandedRol by remember { mutableStateOf(false) }
-    val roles = listOf("CLIENTE", "ADMIN")
 
     Box(
         modifier = Modifier
@@ -121,8 +126,9 @@ private fun RegisterScreen(
                 .animateContentSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            //  FOTO DE PERFIL
+            // -----------------------------------------------------------
+            // FOTO DE PERFIL
+            // -----------------------------------------------------------
             var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
             val context = LocalContext.current
             var showMenu by remember { mutableStateOf(false) }
@@ -192,50 +198,21 @@ private fun RegisterScreen(
 
             Spacer(Modifier.height(20.dp))
 
+            // -----------------------------------------------------------
             // CAMPOS DE FORMULARIO
+            // -----------------------------------------------------------
             RegisterField("Nombre completo", name, onNameChange, nameError)
             RegisterField("Correo electrónico", email, onEmailChange, emailError, KeyboardType.Email)
             RegisterField("Teléfono", phone, onPhoneChange, phoneError, KeyboardType.Number)
 
-            // Selección de rol
-            ExposedDropdownMenuBox(
-                expanded = expandedRol,
-                onExpandedChange = { expandedRol = !expandedRol }
-            ) {
-                OutlinedTextField(
-                    value = selectedRol,
-                    onValueChange = {},
-                    label = { Text("Rol") },
-                    readOnly = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRol) }
-                )
-
-                ExposedDropdownMenu(
-                    expanded = expandedRol,
-                    onDismissRequest = { expandedRol = false }
-                ) {
-                    roles.forEach { rol ->
-                        DropdownMenuItem(
-                            text = { Text(rol) },
-                            onClick = {
-                                onRolChange(rol)
-                                expandedRol = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
             PasswordField("Contraseña", pass, onPassChange, passError, showPass) { showPass = !showPass }
             PasswordField("Confirmar contraseña", confirm, onConfirmChange, confirmError, showConfirm) { showConfirm = !showConfirm }
 
             Spacer(Modifier.height(20.dp))
 
+            // -----------------------------------------------------------
             // BOTÓN REGISTRARSE
+            // -----------------------------------------------------------
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit && !isSubmitting,
@@ -265,6 +242,9 @@ private fun RegisterScreen(
     }
 }
 
+// -----------------------------------------------------------
+// Campos reutilizables
+// -----------------------------------------------------------
 @Composable
 fun RegisterField(
     label: String,
@@ -313,7 +293,9 @@ fun PasswordField(
     Spacer(Modifier.height(8.dp))
 }
 
+// -----------------------------------------------------------
 // Guardar foto localmente (cámara)
+// -----------------------------------------------------------
 fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
     val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.png")
     FileOutputStream(file).use {

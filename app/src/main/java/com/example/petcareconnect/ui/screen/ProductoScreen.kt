@@ -31,14 +31,24 @@ import com.example.petcareconnect.data.repository.ProductoRepository
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
 
+// ---------------------------------------------------------------------------
 // PANTALLA PRINCIPAL DE PRODUCTOS
+// ---------------------------------------------------------------------------
+// Esta pantalla muestra el catálogo de productos disponible en la aplicación.
+// Su comportamiento cambia según el rol del usuario:
+//  - ADMIN: puede crear y eliminar productos.
+//  - CLIENTE o INVITADO: puede visualizar y agregar productos al carrito.
+// Incluye filtros por categoría y animaciones suaves de Material 3.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoScreen(
     rol: String? = null,
     onAgregarAlCarrito: (Producto) -> Unit = {}
 ) {
+    // Se obtiene el contexto de Android actual.
     val context = LocalContext.current
+
+    // Se inicializa la base de datos local Room y los repositorios de producto y categoría.
     val db = remember {
         Room.databaseBuilder(
             context,
@@ -46,25 +56,29 @@ fun ProductoScreen(
             "petcare_db"
         ).build()
     }
-
     val productoRepo = remember { ProductoRepository(db.productoDao()) }
     val categoriaRepo = remember { CategoriaRepository(db.categoriaDao()) }
+
+    // Se crea el ViewModel utilizando una fábrica personalizada.
     val vm: ProductoViewModel = viewModel(factory = ProductoViewModelFactory(productoRepo, categoriaRepo))
     val state by vm.state.collectAsState()
 
+    // Se recargan las categorías al iniciarse la pantalla.
     LaunchedEffect(Unit) {
         vm.recargarCategoriasManualmente()
     }
 
+    // Variables de estado local (controlan el diálogo, filtros y selección actual).
     var showDialog by remember { mutableStateOf(false) }
     var selectedProducto by remember { mutableStateOf<Producto?>(null) }
     var categoriaSeleccionada by remember { mutableStateOf("Todas") }
     var expandedFiltro by remember { mutableStateOf(false) }
 
+    // Identificación del rol del usuario.
     val isAdmin = rol == "ADMIN"
     val isCliente = rol == "CLIENTE" || rol == "INVITADO"
 
-    //  Filtrado dinámico
+    // Filtrado dinámico de productos según la categoría seleccionada.
     val productosFiltrados = remember(state.productos, categoriaSeleccionada) {
         if (categoriaSeleccionada == "Todas") state.productos
         else state.productos.filter { producto ->
@@ -73,6 +87,7 @@ fun ProductoScreen(
         }
     }
 
+    // Contenedor principal de la pantalla.
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -80,17 +95,16 @@ fun ProductoScreen(
             .padding(16.dp)
     ) {
         Column {
-            //  Título principal
+            // Encabezado de la pantalla.
             Text(
                 "Productos disponibles",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = Color(0xFF2196F3)
             )
-
             Spacer(Modifier.height(8.dp))
 
-            //  Filtro de categorías
-            val categorias = state.categorias // 👈 fuerza a Compose a observar los cambios
+            // Filtro de categorías (menú desplegable con animación integrada).
+            val categorias = state.categorias
 
             ExposedDropdownMenuBox(
                 expanded = expandedFiltro,
@@ -102,15 +116,15 @@ fun ProductoScreen(
                     label = { Text("Filtrar por categoría") },
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
 
+                // Menú con efecto de expansión/cierre animado.
                 ExposedDropdownMenu(
                     expanded = expandedFiltro,
                     onDismissRequest = { expandedFiltro = false }
                 ) {
+                    // Opción “Todas”.
                     DropdownMenuItem(
                         text = { Text("Todas") },
                         onClick = {
@@ -119,7 +133,7 @@ fun ProductoScreen(
                         }
                     )
 
-                    //  muestra mensaje si aún no se cargan
+                    // Si las categorías no están cargadas aún, se muestra un mensaje temporal.
                     if (categorias.isEmpty()) {
                         DropdownMenuItem(
                             text = { Text("Cargando categorías...", color = Color.Gray) },
@@ -138,9 +152,10 @@ fun ProductoScreen(
                     }
                 }
             }
+
             Spacer(Modifier.height(12.dp))
 
-            //  Listado de productos filtrados
+            // Lista desplazable de productos (LazyColumn usa carga progresiva y animación fluida).
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(productosFiltrados) { producto ->
                     ProductoCard(
@@ -156,7 +171,7 @@ fun ProductoScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            //  Botón flotante para admin
+            // Botón flotante de acción (solo visible para administradores).
             if (isAdmin) {
                 ExtendedFloatingActionButton(
                     onClick = { showDialog = true },
@@ -167,7 +182,7 @@ fun ProductoScreen(
             }
         }
 
-        //  Diálogo para agregar producto
+        // Diálogo modal para agregar un nuevo producto.
         if (showDialog) {
             DialogAgregarProducto(
                 onDismiss = { showDialog = false },
@@ -179,7 +194,7 @@ fun ProductoScreen(
             )
         }
 
-        //  Detalle de producto
+        // Diálogo de detalle del producto (se muestra al seleccionar uno en la lista).
         if (selectedProducto != null) {
             ProductoDetalleDialog(
                 producto = selectedProducto!!,
@@ -194,8 +209,12 @@ fun ProductoScreen(
     }
 }
 
-
-//  CARD DE PRODUCTO
+// ---------------------------------------------------------------------------
+// CARD DE PRODUCTO
+// ---------------------------------------------------------------------------
+// Componente que representa visualmente un producto individual.
+// Muestra imagen, nombre, precio y stock.
+// Cambia las acciones disponibles según el rol del usuario.
 @Composable
 fun ProductoCard(
     producto: Producto,
@@ -209,22 +228,19 @@ fun ProductoCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .clickable { onClick() },
+            .clickable { onClick() }, // Animación de clic con efecto ripple.
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Imagen del producto o ícono genérico si no existe.
             if (producto.imagenResId != null) {
                 Image(
                     painter = painterResource(id = producto.imagenResId),
                     contentDescription = producto.nombre,
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(MaterialTheme.shapes.small),
+                    modifier = Modifier.size(70.dp).clip(MaterialTheme.shapes.small),
                     contentScale = ContentScale.Crop
                 )
             } else {
@@ -243,6 +259,7 @@ fun ProductoCard(
                 Text("Stock: ${producto.stock}", style = MaterialTheme.typography.bodySmall)
             }
 
+            // Acciones disponibles según el rol.
             if (isAdmin) {
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color.Red)
@@ -261,8 +278,12 @@ fun ProductoCard(
     }
 }
 
-
-//  DETALLE DE PRODUCTO CON RESEÑAS
+// ---------------------------------------------------------------------------
+// DETALLE DE PRODUCTO CON RESEÑAS
+// ---------------------------------------------------------------------------
+// Diálogo emergente que muestra la información completa del producto.
+// Permite al usuario agregarlo al carrito o escribir una reseña.
+// Incluye animación de apertura y cierre integrada en AlertDialog.
 @Composable
 fun ProductoDetalleDialog(
     producto: Producto,
@@ -270,6 +291,7 @@ fun ProductoDetalleDialog(
     onAgregar: (Producto) -> Unit,
     onCerrar: () -> Unit
 ) {
+    // Estados locales para manejar comentarios y calificaciones.
     val comentarios = remember { mutableStateListOf<String>() }
     var comentario by remember { mutableStateOf("") }
     var calificacion by remember { mutableStateOf(3) }
@@ -277,6 +299,7 @@ fun ProductoDetalleDialog(
     AlertDialog(
         onDismissRequest = onCerrar,
         confirmButton = {
+            // Si el usuario no es admin, muestra el botón para agregar al carrito.
             if (!esAdmin) {
                 Button(onClick = { onAgregar(producto) }) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
@@ -290,14 +313,12 @@ fun ProductoDetalleDialog(
         title = { Text(producto.nombre, fontWeight = FontWeight.Bold) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Imagen principal del producto.
                 producto.imagenResId?.let {
                     Image(
                         painter = painterResource(id = it),
                         contentDescription = producto.nombre,
-                        modifier = Modifier
-                            .height(180.dp)
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.medium),
+                        modifier = Modifier.height(180.dp).fillMaxWidth().clip(MaterialTheme.shapes.medium),
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -307,6 +328,7 @@ fun ProductoDetalleDialog(
                 Text("Stock disponible: ${producto.stock}", style = MaterialTheme.typography.bodyMedium)
                 Divider(Modifier.padding(vertical = 10.dp))
 
+                // Sección de reseñas.
                 Text(" Opiniones de usuarios", fontWeight = FontWeight.Bold)
                 if (comentarios.isEmpty()) {
                     Text("Aún no hay reseñas.", color = Color.Gray)
@@ -324,6 +346,7 @@ fun ProductoDetalleDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Selección de calificación con estrellas.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Calificación: ")
                     (1..5).forEach { i ->
@@ -337,6 +360,7 @@ fun ProductoDetalleDialog(
                     }
                 }
 
+                // Publicar una nueva reseña (actualiza la lista local).
                 Button(
                     onClick = {
                         if (comentario.isNotBlank()) {
@@ -353,8 +377,11 @@ fun ProductoDetalleDialog(
     )
 }
 
-
+// ---------------------------------------------------------------------------
 // DIÁLOGO PARA AGREGAR PRODUCTO CON IMAGEN Y CATEGORÍA
+// ---------------------------------------------------------------------------
+// Muestra un formulario modal para registrar un nuevo producto.
+// Permite seleccionar imagen desde recursos, asignar categoría y definir precio/stock.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialogAgregarProducto(
@@ -366,6 +393,7 @@ fun DialogAgregarProducto(
     var expandedCategoria by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    // Variables locales para manejar la imagen seleccionada.
     var nombreDrawable by remember { mutableStateOf("") }
     var idDrawable by remember { mutableStateOf<Int?>(null) }
 
@@ -383,7 +411,7 @@ fun DialogAgregarProducto(
         title = { Text("Agregar producto") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Imagen desde drawable
+                // Campo para cargar una imagen desde drawable.
                 OutlinedTextField(
                     value = nombreDrawable,
                     onValueChange = { nombreDrawable = it },
@@ -393,6 +421,7 @@ fun DialogAgregarProducto(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Botón que carga la imagen de recursos del proyecto.
                 Button(
                     onClick = {
                         val id = context.resources.getIdentifier(
@@ -413,11 +442,9 @@ fun DialogAgregarProducto(
                     Text("Cargar imagen")
                 }
 
+                // Vista previa de la imagen cargada (con fondo gris si no existe).
                 Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(Color(0xFFE0E0E0)),
+                    modifier = Modifier.size(120.dp).clip(MaterialTheme.shapes.medium).background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (idDrawable != null) {
@@ -437,6 +464,7 @@ fun DialogAgregarProducto(
                     }
                 }
 
+                // Campos del formulario (nombre, precio y stock).
                 OutlinedTextField(
                     value = state.nombre,
                     onValueChange = vm::onNombreChange,
@@ -444,7 +472,6 @@ fun DialogAgregarProducto(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 OutlinedTextField(
                     value = state.precio,
                     onValueChange = vm::onPrecioChange,
@@ -453,7 +480,6 @@ fun DialogAgregarProducto(
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
-
                 OutlinedTextField(
                     value = state.stock,
                     onValueChange = vm::onStockChange,
@@ -463,7 +489,7 @@ fun DialogAgregarProducto(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                // Categoría
+                // Menú desplegable para seleccionar categoría.
                 ExposedDropdownMenuBox(
                     expanded = expandedCategoria,
                     onExpandedChange = { expandedCategoria = !expandedCategoria }
@@ -476,7 +502,6 @@ fun DialogAgregarProducto(
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria) }
                     )
-
                     ExposedDropdownMenu(
                         expanded = expandedCategoria,
                         onDismissRequest = { expandedCategoria = false }

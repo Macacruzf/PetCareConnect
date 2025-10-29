@@ -4,6 +4,7 @@ import androidx.room.*
 import com.example.petcareconnect.data.model.Carrito
 import kotlinx.coroutines.flow.Flow
 
+@Dao
 interface CarritoDao {
     @Query("SELECT * FROM carrito")
     fun getAllItems(): Flow<List<Carrito>>

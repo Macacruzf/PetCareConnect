@@ -84,4 +84,9 @@ dependencies {
 
     // --- Carga de imágenes con Coil ---
     implementation("io.coil-kt:coil-compose:2.4.0")
+
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("com.google.code.gson:gson:2.10.1")
 }
