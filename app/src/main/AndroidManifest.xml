@@ -2,15 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permisos (van SIEMPRE fuera del <application>) -->
-    <!-- Permiso para cámara -->
+    <!-- Permisos -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Permiso para acceder a imágenes (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- Compatibilidad para Android 12 e inferiores -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
-    <!-- 🔹 Declarar que la app usa cámara, pero no es obligatoria -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -25,7 +23,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PetCareConnect">
 
-        <!-- 🔹 Actividad principal -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -37,7 +34,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 🔹 FileProvider para guardar fotos desde la cámara -->
+        <!-- FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -47,7 +44,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
     </application>
-
 </manifest>

@@ -1,8 +1,8 @@
 package com.example.petcareconnect.ui.screen
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,7 +34,6 @@ import androidx.core.content.FileProvider
 import coil.compose.rememberAsyncImagePainter
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 import java.io.File
-import java.io.FileOutputStream
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 // -----------------------------------------------------------
@@ -112,6 +115,45 @@ private fun RegisterScreen(
     var showPass by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    var showMenu by remember { mutableStateOf(false) }
+    var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
+    val photoUri = remember { mutableStateOf<Uri?>(null) }
+
+    // 🔹 Cámara real (TakePicture)
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && photoUri.value != null) {
+            imageUri = photoUri.value
+            onFotoSelected(photoUri.value.toString())
+        }
+    }
+
+    // 🔹 Permiso de cámara
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            photoUri.value = uri
+            cameraLauncher.launch(uri)
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 🔹 Galería
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            imageUri = it
+            onFotoSelected(it.toString())
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -129,29 +171,6 @@ private fun RegisterScreen(
             // -----------------------------------------------------------
             // FOTO DE PERFIL
             // -----------------------------------------------------------
-            var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
-            val context = LocalContext.current
-            var showMenu by remember { mutableStateOf(false) }
-
-            val cameraLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.TakePicturePreview()
-            ) { bitmap ->
-                bitmap?.let {
-                    val uri = saveBitmapToCache(context, it)
-                    imageUri = uri
-                    onFotoSelected(uri.toString())
-                }
-            }
-
-            val galleryLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.GetContent()
-            ) { uri ->
-                uri?.let {
-                    imageUri = it
-                    onFotoSelected(it.toString())
-                }
-            }
-
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -177,13 +196,16 @@ private fun RegisterScreen(
                 }
             }
 
+            // -----------------------------------------------------------
+            // MENÚ (CÁMARA / GALERÍA)
+            // -----------------------------------------------------------
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text("Tomar foto") },
                     leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
                     onClick = {
                         showMenu = false
-                        cameraLauncher.launch(null)
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                     }
                 )
                 DropdownMenuItem(
@@ -199,7 +221,7 @@ private fun RegisterScreen(
             Spacer(Modifier.height(20.dp))
 
             // -----------------------------------------------------------
-            // CAMPOS DE FORMULARIO
+            // CAMPOS DEL FORMULARIO
             // -----------------------------------------------------------
             RegisterField("Nombre completo", name, onNameChange, nameError)
             RegisterField("Correo electrónico", email, onEmailChange, emailError, KeyboardType.Email)
@@ -262,7 +284,9 @@ fun RegisterField(
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
     )
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall) }
+    error?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+    }
     Spacer(Modifier.height(8.dp))
 }
 
@@ -284,22 +308,16 @@ fun PasswordField(
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = onToggle) {
-                Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                Icon(
+                    if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = null
+                )
             }
         },
         modifier = Modifier.fillMaxWidth()
     )
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall) }
-    Spacer(Modifier.height(8.dp))
-}
-
-// -----------------------------------------------------------
-// Guardar foto localmente (cámara)
-// -----------------------------------------------------------
-fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
-    val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.png")
-    FileOutputStream(file).use {
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+    error?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
     }
-    return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    Spacer(Modifier.height(8.dp))
 }
