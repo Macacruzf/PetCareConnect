@@ -12,21 +12,26 @@ import androidx.room.ForeignKey
             parentColumns = ["idCategoria"],
             childColumns = ["categoriaId"],
             onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = Estado::class,
-            parentColumns = ["idEstado"],
-            childColumns = ["estadoId"],
-            onDelete = ForeignKey.CASCADE
         )
+        // ⚠ EstadoProducto ya no es una tabla → ya no se usa foreign key
     ]
 )
 data class Producto(
-    @PrimaryKey(autoGenerate = true) val idProducto: Int = 0,
+
+    @PrimaryKey(autoGenerate = true)
+    val idProducto: Int = 0,
+
     val nombre: String,
     val precio: Double,
     val stock: Int,
+
+    // Relación con Categoria
     val categoriaId: Int,
-    val estadoId: Int,
-    val imagenResId: Int? = null // ← Ruta o URI de la imagen (String)
+
+    //  Ahora se usa enum en vez de estadoId
+    val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
+
+    // Imagen (opcional)
+    val imagenResId: Int? = null,
+    val imagenUri: String? = null      // imágenes desde cámara/galería
 )

@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.example.petcareconnect.R
+import com.example.petcareconnect.data.db.converters.EstadoProductoConverter
 import com.example.petcareconnect.data.db.dao.*
 import com.example.petcareconnect.data.model.*
 import kotlinx.coroutines.CoroutineScope
@@ -15,20 +17,19 @@ import kotlinx.coroutines.launch
 @Database(
     entities = [
         Categoria::class,
-        Estado::class,
         Producto::class,
         Venta::class,
         DetalleVenta::class,
         Usuario::class,
         Ticket::class
     ],
-    version = 28, // ⬆ sube versión para forzar recreación de BD
+    version = 29,
     exportSchema = false
 )
+@TypeConverters(EstadoProductoConverter::class)
 abstract class PetCareDatabase : RoomDatabase() {
 
     abstract fun categoriaDao(): CategoriaDao
-    abstract fun estadoDao(): EstadoDao
     abstract fun productoDao(): ProductoDao
     abstract fun ventaDao(): VentaDao
     abstract fun detalleVentaDao(): DetalleVentaDao
@@ -46,7 +47,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                     PetCareDatabase::class.java,
                     "petcare_db"
                 )
-                    .fallbackToDestructiveMigration() // Regenera si cambia versión
+                    .fallbackToDestructiveMigration()
                     .addCallback(SeedDataCallback(context))
                     .build()
                 INSTANCE = instance
@@ -55,21 +56,19 @@ abstract class PetCareDatabase : RoomDatabase() {
         }
     }
 
-
-      //Inserta datos iniciales al abrir la base de datos.
-
     private class SeedDataCallback(private val context: Context) : RoomDatabase.Callback() {
         override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
             super.onOpen(db)
+
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val database = INSTANCE ?: return@launch
+
                     val usuarioDao = database.usuarioDao()
                     val categoriaDao = database.categoriaDao()
-                    val estadoDao = database.estadoDao()
                     val productoDao = database.productoDao()
 
-                    //  Usuarios base
+                    // Usuarios base
                     if (usuarioDao.getByEmail("admin@petcare.cl") == null) {
                         usuarioDao.insert(
                             Usuario(
@@ -81,6 +80,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                             )
                         )
                     }
+
                     if (usuarioDao.getByEmail("cliente@petcare.cl") == null) {
                         usuarioDao.insert(
                             Usuario(
@@ -93,40 +93,33 @@ abstract class PetCareDatabase : RoomDatabase() {
                         )
                     }
 
-                    //  Categorías base
+                    // Categorías base
                     val categoriasBase = listOf("Alimentos", "Accesorios", "Higiene", "Salud", "Juguetes")
                     if (categoriaDao.getAllOnce().isEmpty()) {
                         categoriasBase.forEach { categoriaDao.insert(Categoria(nombre = it)) }
-                        Log.i("PetCareDB", " Categorías base creadas")
+                        Log.i("PetCareDB", "Categorías base creadas")
                     }
 
-                    //  Estados base
-                    if (estadoDao.getAllOnce().isEmpty()) {
-                        estadoDao.insert(Estado(idEstado = 1, nombre = "Activo"))
-                        estadoDao.insert(Estado(idEstado = 2, nombre = "Inactivo"))
-                        Log.i("PetCareDB", " Estados base creados")
-                    }
-
-                    //  Productos base
+                    // Productos base
                     if (productoDao.getAllOnce().isEmpty()) {
-                        val categorias = categoriaDao.getAllOnce()
-                        val estadoActivo = estadoDao.getAllOnce()
-                            .firstOrNull { it.nombre == "Activo" }?.idEstado ?: 1
 
-                        val alimentosId = categorias.firstOrNull { it.nombre == "Alimentos" }?.idCategoria ?: 1
-                        val accesoriosId = categorias.firstOrNull { it.nombre == "Accesorios" }?.idCategoria ?: 2
-                        val higieneId = categorias.firstOrNull { it.nombre == "Higiene" }?.idCategoria ?: 3
-                        val saludId = categorias.firstOrNull { it.nombre == "Salud" }?.idCategoria ?: 4
-                        val juguetesId = categorias.firstOrNull { it.nombre == "Juguetes" }?.idCategoria ?: 5
+                        val categorias = categoriaDao.getAllOnce()
+
+                        val alimentosId = categorias.first { it.nombre == "Alimentos" }.idCategoria
+                        val accesoriosId = categorias.first { it.nombre == "Accesorios" }.idCategoria
+                        val higieneId = categorias.first { it.nombre == "Higiene" }.idCategoria
+                        val saludId = categorias.first { it.nombre == "Salud" }.idCategoria
+                        val juguetesId = categorias.first { it.nombre == "Juguetes" }.idCategoria
 
                         val productosBase = listOf(
-                            //  Alimentos
+
+                            // --- ALIMENTOS ---
                             Producto(
                                 nombre = "Alimento para Perro DogChow 3kg",
                                 precio = 15990.0,
                                 stock = 25,
                                 categoriaId = alimentosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.comida_perrodogchow
                             ),
                             Producto(
@@ -134,7 +127,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 13990.0,
                                 stock = 30,
                                 categoriaId = alimentosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.comidawhiskas_gato
                             ),
                             Producto(
@@ -142,17 +135,17 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 4990.0,
                                 stock = 40,
                                 categoriaId = alimentosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.snack_dentalpedigree
                             ),
 
-                            // Accesorios
+                            // --- ACCESORIOS ---
                             Producto(
                                 nombre = "Correa Retráctil Azul",
                                 precio = 8990.0,
                                 stock = 15,
                                 categoriaId = accesoriosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.correa_retractilazul
                             ),
                             Producto(
@@ -160,7 +153,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 4990.0,
                                 stock = 25,
                                 categoriaId = accesoriosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.collar_rojo
                             ),
                             Producto(
@@ -168,17 +161,17 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 6990.0,
                                 stock = 20,
                                 categoriaId = accesoriosId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.plato_doble
                             ),
 
-                            // Higiene
+                            // --- HIGIENE ---
                             Producto(
                                 nombre = "Shampoo PelitoSuave para Gatos",
                                 precio = 7990.0,
                                 stock = 20,
                                 categoriaId = higieneId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.shampoo_gato
                             ),
                             Producto(
@@ -186,7 +179,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 5990.0,
                                 stock = 30,
                                 categoriaId = higieneId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.toallitas_petclean
                             ),
                             Producto(
@@ -194,17 +187,17 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 4990.0,
                                 stock = 18,
                                 categoriaId = higieneId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.cortaunias
                             ),
 
-                            //  Salud
+                            // --- SALUD ---
                             Producto(
                                 nombre = "Vitaminas Vita C",
                                 precio = 12990.0,
                                 stock = 25,
                                 categoriaId = saludId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.vitaminas_vitac
                             ),
                             Producto(
@@ -212,7 +205,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 15990.0,
                                 stock = 20,
                                 categoriaId = saludId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.antipulgasnexgard
                             ),
                             Producto(
@@ -220,17 +213,17 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 8990.0,
                                 stock = 30,
                                 categoriaId = saludId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.collar_antipulgas
                             ),
 
-                            // Juguetes
+                            // --- JUGUETES ---
                             Producto(
                                 nombre = "Pelota Masticable de Goma",
                                 precio = 3990.0,
                                 stock = 40,
                                 categoriaId = juguetesId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.juguete_goma
                             ),
                             Producto(
@@ -238,7 +231,7 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 2990.0,
                                 stock = 35,
                                 categoriaId = juguetesId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.raton_tela
                             ),
                             Producto(
@@ -246,16 +239,14 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 precio = 5990.0,
                                 stock = 25,
                                 categoriaId = juguetesId,
-                                estadoId = estadoActivo,
+                                estado = EstadoProducto.DISPONIBLE,
                                 imagenResId = R.drawable.cuerda_mordedora
                             )
                         )
 
                         productosBase.forEach { productoDao.insert(it) }
-                        Log.i("PetCareDB", " Productos base creados con imágenes locales y categorías completas")
+                        Log.i("PetCareDB", "Productos base creados")
                     }
-
-                    Log.i("PetCareDB", "Datos base cargados correctamente")
 
                 } catch (e: Exception) {
                     Log.e("PetCareDB", "Error al insertar datos base: ${e.message}")

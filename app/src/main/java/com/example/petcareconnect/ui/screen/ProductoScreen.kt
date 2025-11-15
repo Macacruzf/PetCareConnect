@@ -1,12 +1,15 @@
 package com.example.petcareconnect.ui.screen
 
-import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,31 +27,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
+import coil.compose.rememberAsyncImagePainter
 import com.example.petcareconnect.data.db.PetCareDatabase
 import com.example.petcareconnect.data.model.Producto
+import com.example.petcareconnect.data.model.EstadoProducto
 import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.data.repository.ProductoRepository
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
 
-// ---------------------------------------------------------------------------
-// PANTALLA PRINCIPAL DE PRODUCTOS
-// ---------------------------------------------------------------------------
-// Esta pantalla muestra el catálogo de productos disponible en la aplicación.
-// Su comportamiento cambia según el rol del usuario:
-//  - ADMIN: puede crear y eliminar productos.
-//  - CLIENTE o INVITADO: puede visualizar y agregar productos al carrito.
-// Incluye filtros por categoría y animaciones suaves de Material 3.
+// ---------------------------------------------------------
+//                 PRODUCTO SCREEN
+// ---------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoScreen(
     rol: String? = null,
     onAgregarAlCarrito: (Producto) -> Unit = {}
 ) {
-    // Se obtiene el contexto de Android actual.
     val context = LocalContext.current
 
-    // Se inicializa la base de datos local Room y los repositorios de producto y categoría.
     val db = remember {
         Room.databaseBuilder(
             context,
@@ -56,38 +54,36 @@ fun ProductoScreen(
             "petcare_db"
         ).build()
     }
+
     val productoRepo = remember { ProductoRepository(db.productoDao()) }
     val categoriaRepo = remember { CategoriaRepository(db.categoriaDao()) }
 
-    // Se crea el ViewModel utilizando una fábrica personalizada.
-    val vm: ProductoViewModel = viewModel(factory = ProductoViewModelFactory(productoRepo, categoriaRepo))
+    val vm: ProductoViewModel = viewModel(
+        factory = ProductoViewModelFactory(productoRepo, categoriaRepo)
+    )
+
     val state by vm.state.collectAsState()
 
-    // Se recargan las categorías al iniciarse la pantalla.
-    LaunchedEffect(Unit) {
-        vm.recargarCategoriasManualmente()
-    }
-
-    // Variables de estado local (controlan el diálogo, filtros y selección actual).
     var showDialog by remember { mutableStateOf(false) }
     var selectedProducto by remember { mutableStateOf<Producto?>(null) }
     var categoriaSeleccionada by remember { mutableStateOf("Todas") }
     var expandedFiltro by remember { mutableStateOf(false) }
 
-    // Identificación del rol del usuario.
     val isAdmin = rol == "ADMIN"
     val isCliente = rol == "CLIENTE" || rol == "INVITADO"
 
-    // Filtrado dinámico de productos según la categoría seleccionada.
+    // FILTRO
     val productosFiltrados = remember(state.productos, categoriaSeleccionada) {
         if (categoriaSeleccionada == "Todas") state.productos
-        else state.productos.filter { producto ->
-            val categoria = state.categorias.firstOrNull { it.idCategoria == producto.categoriaId }?.nombre
-            categoria == categoriaSeleccionada
+        else state.productos.filter {
+            val cat = state.categorias.firstOrNull { c -> c.idCategoria == it.categoriaId }?.nombre
+            cat == categoriaSeleccionada
         }
     }
 
-    // Contenedor principal de la pantalla.
+    // -----------------------------------------------------
+    // PANTALLA
+    // -----------------------------------------------------
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -95,17 +91,16 @@ fun ProductoScreen(
             .padding(16.dp)
     ) {
         Column {
-            // Encabezado de la pantalla.
+
             Text(
                 "Productos disponibles",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = Color(0xFF2196F3)
             )
-            Spacer(Modifier.height(8.dp))
 
-            // Filtro de categorías (menú desplegable con animación integrada).
-            val categorias = state.categorias
+            Spacer(Modifier.height(10.dp))
 
+            // FILTRO POR CATEGORÍA
             ExposedDropdownMenuBox(
                 expanded = expandedFiltro,
                 onExpandedChange = { expandedFiltro = !expandedFiltro }
@@ -113,18 +108,20 @@ fun ProductoScreen(
                 OutlinedTextField(
                     value = categoriaSeleccionada,
                     onValueChange = {},
-                    label = { Text("Filtrar por categoría") },
                     readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    label = { Text("Filtrar por categoría") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
                 )
 
-                // Menú con efecto de expansión/cierre animado.
                 ExposedDropdownMenu(
                     expanded = expandedFiltro,
                     onDismissRequest = { expandedFiltro = false }
                 ) {
-                    // Opción “Todas”.
                     DropdownMenuItem(
                         text = { Text("Todas") },
                         onClick = {
@@ -133,29 +130,21 @@ fun ProductoScreen(
                         }
                     )
 
-                    // Si las categorías no están cargadas aún, se muestra un mensaje temporal.
-                    if (categorias.isEmpty()) {
+                    state.categorias.forEach { categoria ->
                         DropdownMenuItem(
-                            text = { Text("Cargando categorías...", color = Color.Gray) },
-                            onClick = { expandedFiltro = false }
+                            text = { Text(categoria.nombre) },
+                            onClick = {
+                                categoriaSeleccionada = categoria.nombre
+                                expandedFiltro = false
+                            }
                         )
-                    } else {
-                        categorias.forEach { categoria ->
-                            DropdownMenuItem(
-                                text = { Text(categoria.nombre) },
-                                onClick = {
-                                    categoriaSeleccionada = categoria.nombre
-                                    expandedFiltro = false
-                                }
-                            )
-                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // Lista desplazable de productos (LazyColumn usa carga progresiva y animación fluida).
+            // LISTA DE PRODUCTOS
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(productosFiltrados) { producto ->
                     ProductoCard(
@@ -164,25 +153,26 @@ fun ProductoScreen(
                         isCliente = isCliente,
                         onClick = { selectedProducto = producto },
                         onDelete = { vm.deleteProducto(producto.idProducto) },
+                        onCambiarEstado = { estado ->
+                            vm.cambiarEstadoManual(producto.idProducto, estado)
+                        },
                         onAgregarAlCarrito = { onAgregarAlCarrito(producto) }
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            // Botón flotante de acción (solo visible para administradores).
             if (isAdmin) {
+                Spacer(Modifier.height(15.dp))
                 ExtendedFloatingActionButton(
                     onClick = { showDialog = true },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = "Agregar producto") },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     text = { Text("Nuevo producto") },
                     containerColor = Color(0xFF4CAF50)
                 )
             }
         }
 
-        // Diálogo modal para agregar un nuevo producto.
+        // DIALOG AGREGAR
         if (showDialog) {
             DialogAgregarProducto(
                 onDismiss = { showDialog = false },
@@ -194,13 +184,20 @@ fun ProductoScreen(
             )
         }
 
-        // Diálogo de detalle del producto (se muestra al seleccionar uno en la lista).
+        // DIALOG DETALLE
         if (selectedProducto != null) {
             ProductoDetalleDialog(
                 producto = selectedProducto!!,
                 esAdmin = isAdmin,
+                onCambiarEstado = { estado ->
+                    vm.cambiarEstadoManual(selectedProducto!!.idProducto, estado)
+                },
                 onAgregar = {
                     onAgregarAlCarrito(it)
+                    selectedProducto = null
+                },
+                onEliminar = {
+                    vm.deleteProducto(selectedProducto!!.idProducto)
                     selectedProducto = null
                 },
                 onCerrar = { selectedProducto = null }
@@ -209,12 +206,9 @@ fun ProductoScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// CARD DE PRODUCTO
-// ---------------------------------------------------------------------------
-// Componente que representa visualmente un producto individual.
-// Muestra imagen, nombre, precio y stock.
-// Cambia las acciones disponibles según el rol del usuario.
+// ---------------------------------------------------------
+//                CARD PRODUCTO
+// ---------------------------------------------------------
 @Composable
 fun ProductoCard(
     producto: Producto,
@@ -222,47 +216,99 @@ fun ProductoCard(
     isCliente: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onCambiarEstado: (EstadoProducto) -> Unit,
     onAgregarAlCarrito: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clickable { onClick() }, // Animación de clic con efecto ripple.
+            .padding(6.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(10.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Imagen del producto o ícono genérico si no existe.
-            if (producto.imagenResId != null) {
-                Image(
-                    painter = painterResource(id = producto.imagenResId),
-                    contentDescription = producto.nombre,
-                    modifier = Modifier.size(70.dp).clip(MaterialTheme.shapes.small),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.Pets,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(70.dp)
-                )
+
+            // Imagen (URI o drawable)
+            when {
+                // 1) Imagen desde URI (galería/cámara)
+                producto.imagenUri != null -> {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = producto.imagenUri),
+                        contentDescription = producto.nombre,
+                        modifier = Modifier
+                            .size(65.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                // 2) Imagen por recurso drawable (semillas)
+                producto.imagenResId != null -> {
+                    Image(
+                        painter = painterResource(id = producto.imagenResId),
+                        contentDescription = producto.nombre,
+                        modifier = Modifier
+                            .size(65.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                // 3) Icono por defecto
+                else -> {
+                    Icon(
+                        Icons.Default.Pets,
+                        contentDescription = null,
+                        modifier = Modifier.size(65.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             Spacer(Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(producto.nombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Precio: $${producto.precio}", style = MaterialTheme.typography.bodySmall)
-                Text("Stock: ${producto.stock}", style = MaterialTheme.typography.bodySmall)
+                Text(producto.nombre, fontWeight = FontWeight.Bold)
+                Text("Precio: $${producto.precio}")
+                Text("Stock: ${producto.stock}")
+
+                val estadoColor = when (producto.estado) {
+                    EstadoProducto.DISPONIBLE -> Color(0xFF4CAF50)
+                    EstadoProducto.NO_DISPONIBLE -> Color(0xFF9E9E9E)
+                    EstadoProducto.SIN_STOCK -> Color(0xFFFF9800)
+                }
+
+                Text(
+                    "Estado: ${producto.estado.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    color = estadoColor,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
-            // Acciones disponibles según el rol.
+            // ACCIONES ADMIN
             if (isAdmin) {
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                    IconButton(onClick = { onCambiarEstado(EstadoProducto.DISPONIBLE) }) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = "Disponible", tint = Color(0xFF4CAF50))
+                    }
+                    IconButton(onClick = { onCambiarEstado(EstadoProducto.NO_DISPONIBLE) }) {
+                        Icon(Icons.Filled.Block, contentDescription = "No disponible", tint = Color(0xFF616161))
+                    }
+                    IconButton(onClick = { onCambiarEstado(EstadoProducto.SIN_STOCK) }) {
+                        Icon(Icons.Filled.Warning, contentDescription = "Sin stock", tint = Color(0xFFFF9800))
+                    }
+
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color(0xFFD32F2F))
+                    }
+
+                    // Pequeña ayuda visual
+                    Text("Disp / No / Sin", style = MaterialTheme.typography.labelSmall)
                 }
             } else if (isCliente) {
                 Button(
@@ -278,110 +324,104 @@ fun ProductoCard(
     }
 }
 
-// ---------------------------------------------------------------------------
-// DETALLE DE PRODUCTO CON RESEÑAS
-// ---------------------------------------------------------------------------
-// Diálogo emergente que muestra la información completa del producto.
-// Permite al usuario agregarlo al carrito o escribir una reseña.
-// Incluye animación de apertura y cierre integrada en AlertDialog.
+// ---------------------------------------------------------
+//             DIALOG DETALLE PRODUCTO
+// ---------------------------------------------------------
 @Composable
 fun ProductoDetalleDialog(
     producto: Producto,
     esAdmin: Boolean,
+    onCambiarEstado: (EstadoProducto) -> Unit,
     onAgregar: (Producto) -> Unit,
+    onEliminar: () -> Unit,
     onCerrar: () -> Unit
 ) {
-    // Estados locales para manejar comentarios y calificaciones.
-    val comentarios = remember { mutableStateListOf<String>() }
-    var comentario by remember { mutableStateOf("") }
-    var calificacion by remember { mutableStateOf(3) }
-
     AlertDialog(
         onDismissRequest = onCerrar,
+        title = { Text(producto.nombre, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                // Imagen (URI o drawable)
+                when {
+                    producto.imagenUri != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = producto.imagenUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .height(180.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    producto.imagenResId != null -> {
+                        Image(
+                            painter = painterResource(id = producto.imagenResId),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .height(180.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                Text("Precio: $${producto.precio}")
+                Text("Stock: ${producto.stock}")
+                Text("Estado: ${producto.estado.name}")
+
+                if (esAdmin) {
+                    Spacer(Modifier.height(15.dp))
+                    Divider()
+                    Spacer(Modifier.height(8.dp))
+
+                    Text("Cambiar estado:", fontWeight = FontWeight.Bold)
+
+                    Row(horizontalArrangement = Arrangement.SpaceEvenly) {
+
+                        IconButton(onClick = { onCambiarEstado(EstadoProducto.DISPONIBLE) }) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = "Disponible", tint = Color(0xFF4CAF50))
+                        }
+
+                        IconButton(onClick = { onCambiarEstado(EstadoProducto.NO_DISPONIBLE) }) {
+                            Icon(Icons.Filled.Block, contentDescription = "No disponible", tint = Color(0xFF616161))
+                        }
+
+                        IconButton(onClick = { onCambiarEstado(EstadoProducto.SIN_STOCK) }) {
+                            Icon(Icons.Filled.Warning, contentDescription = "Sin stock", tint = Color(0xFFFF9800))
+                        }
+                    }
+                }
+            }
+        },
         confirmButton = {
-            // Si el usuario no es admin, muestra el botón para agregar al carrito.
             if (!esAdmin) {
                 Button(onClick = { onAgregar(producto) }) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
                     Text("Agregar al carrito")
                 }
             } else {
                 OutlinedButton(onClick = onCerrar) { Text("Cerrar") }
             }
         },
-        title = { Text(producto.nombre, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Imagen principal del producto.
-                producto.imagenResId?.let {
-                    Image(
-                        painter = painterResource(id = it),
-                        contentDescription = producto.nombre,
-                        modifier = Modifier.height(180.dp).fillMaxWidth().clip(MaterialTheme.shapes.medium),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(Modifier.height(10.dp))
-                Text("Precio: $${producto.precio}", style = MaterialTheme.typography.bodyLarge)
-                Text("Stock disponible: ${producto.stock}", style = MaterialTheme.typography.bodyMedium)
-                Divider(Modifier.padding(vertical = 10.dp))
-
-                // Sección de reseñas.
-                Text(" Opiniones de usuarios", fontWeight = FontWeight.Bold)
-                if (comentarios.isEmpty()) {
-                    Text("Aún no hay reseñas.", color = Color.Gray)
-                } else {
-                    comentarios.forEach {
-                        Text(it, color = Color.DarkGray, modifier = Modifier.padding(4.dp))
+        dismissButton =
+            if (esAdmin) {
+                {
+                    OutlinedButton(onClick = onEliminar) {
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                        Text(" Eliminar")
                     }
                 }
-
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = comentario,
-                    onValueChange = { comentario = it },
-                    label = { Text("Escribe tu comentario") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Selección de calificación con estrellas.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Calificación: ")
-                    (1..5).forEach { i ->
-                        IconButton(onClick = { calificacion = i }) {
-                            Icon(
-                                imageVector = if (i <= calificacion) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = null,
-                                tint = Color(0xFFFFC107)
-                            )
-                        }
-                    }
-                }
-
-                // Publicar una nueva reseña (actualiza la lista local).
-                Button(
-                    onClick = {
-                        if (comentario.isNotBlank()) {
-                            comentarios.add("⭐️$calificacion - $comentario")
-                            comentario = ""
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Publicar reseña")
-                }
-            }
-        }
+            } else null
     )
 }
 
-// ---------------------------------------------------------------------------
-// DIÁLOGO PARA AGREGAR PRODUCTO CON IMAGEN Y CATEGORÍA
-// ---------------------------------------------------------------------------
-// Muestra un formulario modal para registrar un nuevo producto.
-// Permite seleccionar imagen desde recursos, asignar categoría y definir precio/stock.
+// ---------------------------------------------------------
+//             DIALOG AGREGAR PRODUCTO
+// ---------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialogAgregarProducto(
@@ -390,128 +430,174 @@ fun DialogAgregarProducto(
     vm: ProductoViewModel
 ) {
     val state by vm.state.collectAsState()
-    var expandedCategoria by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Variables locales para manejar la imagen seleccionada.
-    var nombreDrawable by remember { mutableStateOf("") }
-    var idDrawable by remember { mutableStateOf<Int?>(null) }
+    var expandedCategoria by remember { mutableStateOf(false) }
+    var expandedEstado by remember { mutableStateOf(false) }
+
+    // Launcher único para cámara/galería (el sistema ofrece ambas opciones)
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        vm.onImagenUriChange(uri?.toString())
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(onClick = {
-                vm.insertProducto()
-                onGuardar()
-            }) { Text("Guardar") }
+            Button(onClick = onGuardar) {
+                Text("Guardar")
+            }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) { Text("Cancelar") }
         },
         title = { Text("Agregar producto") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Campo para cargar una imagen desde drawable.
-                OutlinedTextField(
-                    value = nombreDrawable,
-                    onValueChange = { nombreDrawable = it },
-                    label = { Text("Nombre de imagen (drawable)") },
-                    placeholder = { Text("Ej: shampoo_perros") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-                // Botón que carga la imagen de recursos del proyecto.
-                Button(
-                    onClick = {
-                        val id = context.resources.getIdentifier(
-                            nombreDrawable.trim(),
-                            "drawable",
-                            context.packageName
-                        )
-                        if (id != 0) {
-                            idDrawable = id
-                            vm.onImagenChange(id)
-                        } else {
-                            idDrawable = null
-                            vm.onImagenChange(null)
-                        }
-                    },
+                Text("Imagen del producto", fontWeight = FontWeight.SemiBold)
+
+                // Botones "Cámara" y "Galería" (ambos abren el selector del sistema)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Cargar imagen")
+                    OutlinedButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Cámara")
+                    }
+                    OutlinedButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Galería")
+                    }
                 }
 
-                // Vista previa de la imagen cargada (con fondo gris si no existe).
+                // Vista previa
                 Box(
-                    modifier = Modifier.size(120.dp).clip(MaterialTheme.shapes.medium).background(Color(0xFFE0E0E0)),
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (idDrawable != null) {
+                    if (state.imagenUri != null) {
                         Image(
-                            painter = painterResource(id = idDrawable!!),
-                            contentDescription = "Vista previa",
+                            painter = rememberAsyncImagePainter(model = state.imagenUri),
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.Image,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(40.dp)
-                        )
+                        Icon(Icons.Default.Pets, contentDescription = null, tint = Color.Gray)
                     }
                 }
 
-                // Campos del formulario (nombre, precio y stock).
+                // NOMBRE
                 OutlinedTextField(
                     value = state.nombre,
                     onValueChange = vm::onNombreChange,
                     label = { Text("Nombre del producto") },
-                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // PRECIO SOLO NÚMEROS (y punto)
                 OutlinedTextField(
                     value = state.precio,
-                    onValueChange = vm::onPrecioChange,
+                    onValueChange = {
+                        if (it.all { c -> c.isDigit() || c == '.' }) vm.onPrecioChange(it)
+                    },
                     label = { Text("Precio") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                OutlinedTextField(
-                    value = state.stock,
-                    onValueChange = vm::onStockChange,
-                    label = { Text("Stock") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
                 )
 
-                // Menú desplegable para seleccionar categoría.
+                // STOCK SOLO NÚMEROS
+                OutlinedTextField(
+                    value = state.stock,
+                    onValueChange = {
+                        if (it.all { c -> c.isDigit() }) vm.onStockChange(it)
+                    },
+                    label = { Text("Stock") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // CATEGORÍA
                 ExposedDropdownMenuBox(
                     expanded = expandedCategoria,
                     onExpandedChange = { expandedCategoria = !expandedCategoria }
                 ) {
+
                     OutlinedTextField(
-                        value = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }?.nombre ?: "",
+                        value = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }?.nombre
+                            ?: "",
                         onValueChange = {},
-                        label = { Text("Categoría") },
                         readOnly = true,
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria) }
+                        label = { Text("Categoría") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
                     )
+
                     ExposedDropdownMenu(
                         expanded = expandedCategoria,
                         onDismissRequest = { expandedCategoria = false }
                     ) {
+
                         state.categorias.forEach { categoria ->
                             DropdownMenuItem(
                                 text = { Text(categoria.nombre) },
                                 onClick = {
                                     vm.onCategoriaChange(categoria.idCategoria)
                                     expandedCategoria = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // ESTADO
+                ExposedDropdownMenuBox(
+                    expanded = expandedEstado,
+                    onExpandedChange = { expandedEstado = !expandedEstado }
+                ) {
+
+                    OutlinedTextField(
+                        value = state.estado.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Estado") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEstado)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expandedEstado,
+                        onDismissRequest = { expandedEstado = false }
+                    ) {
+
+                        EstadoProducto.values().forEach { estado ->
+                            DropdownMenuItem(
+                                text = { Text(estado.name) },
+                                onClick = {
+                                    vm.onEstadoChange(estado)
+                                    expandedEstado = false
                                 }
                             )
                         }
