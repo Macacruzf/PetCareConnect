@@ -27,16 +27,18 @@ data class ProductoUiState(
 
     val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
 
-    val imagenResId: Int? = null,   // drawable
-    val imagenUri: String? = null,   // cámara o galería
+    val imagenResId: Int? = null,
+    val imagenUri: String? = null,
 
     val isLoading: Boolean = false,
     val errorMsg: String? = null,
-    val successMsg: String? = null
+    val successMsg: String? = null,
+
+    val productoEnEdicionId: Int? = null
 )
 
 // ----------------------------------------------------------
-// VIEW MODEL
+// VIEWMODEL
 // ----------------------------------------------------------
 class ProductoViewModel(
     private val repository: ProductoRepository,
@@ -52,8 +54,6 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // CARGAR PRODUCTOS
-    // ------------------------------------------------------
     private fun loadProductos() {
         viewModelScope.launch {
             repository.getAllProductos().collect { productos ->
@@ -62,9 +62,6 @@ class ProductoViewModel(
         }
     }
 
-    // ------------------------------------------------------
-    // CARGAR CATEGORÍAS
-    // ------------------------------------------------------
     private fun loadCategorias() {
         viewModelScope.launch {
             categoriaRepository.getAllCategorias().collect { categorias ->
@@ -87,7 +84,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // INSERTAR PRODUCTO
+    // AGREGAR PRODUCTO
     // ------------------------------------------------------
     fun insertProducto() {
         val nombre = _state.value.nombre.trim()
@@ -108,27 +105,67 @@ class ProductoViewModel(
                     stock = stock,
                     categoriaId = categoriaId,
                     estado = _state.value.estado,
-
-                    imagenResId = _state.value.imagenResId,  // drawable
-                    imagenUri = _state.value.imagenUri       // cámara/galería
+                    imagenResId = _state.value.imagenResId,
+                    imagenUri = _state.value.imagenUri
                 )
             )
-
-            _state.value = _state.value.copy(
-                successMsg = "Producto agregado correctamente.",
-                nombre = "",
-                precio = "",
-                stock = "",
-                categoriaId = null,
-                estado = EstadoProducto.DISPONIBLE,
-                imagenResId = null,
-                imagenUri = null
-            )
+            limpiarFormulario("Producto agregado correctamente.")
         }
     }
 
     // ------------------------------------------------------
-    // ELIMINAR PRODUCTO
+    // CARGAR DATOS PARA EDITAR
+    // ------------------------------------------------------
+    fun cargarProductoParaEdicion(producto: Producto) {
+        _state.value = _state.value.copy(
+            productoEnEdicionId = producto.idProducto,
+            nombre = producto.nombre,
+            precio = producto.precio.toString(),
+            stock = producto.stock.toString(),
+            categoriaId = producto.categoriaId,
+            estado = producto.estado,
+            imagenResId = producto.imagenResId,
+            imagenUri = producto.imagenUri
+        )
+    }
+
+    // ------------------------------------------------------
+    // EDITAR PRODUCTO
+    // ------------------------------------------------------
+    fun editarProducto() {
+        val id = _state.value.productoEnEdicionId
+            ?: return setError("No se pudo identificar el producto.")
+
+        val nombre = _state.value.nombre.trim()
+        val precio = _state.value.precio.toDoubleOrNull()
+        val stock = _state.value.stock.toIntOrNull()
+        val categoriaId = _state.value.categoriaId
+
+        if (nombre.isBlank()) return setError("El nombre es obligatorio.")
+        if (precio == null || precio <= 0) return setError("El precio es inválido.")
+        if (stock == null || stock < 0) return setError("El stock es inválido.")
+        if (categoriaId == null) return setError("Selecciona una categoría.")
+
+        viewModelScope.launch {
+            val productoActual = _state.value.productos.find { it.idProducto == id }
+                ?: return@launch setError("Producto no encontrado.")
+
+            repository.update(
+                productoActual.copy(
+                    nombre = nombre,
+                    precio = precio,
+                    stock = stock,
+                    categoriaId = categoriaId,
+                    estado = _state.value.estado,
+                    imagenResId = _state.value.imagenResId,
+                    imagenUri = _state.value.imagenUri
+                )
+            )
+
+            limpiarFormulario("Producto actualizado correctamente.")
+        }
+    }
+
     // ------------------------------------------------------
     fun deleteProducto(idProducto: Int) {
         viewModelScope.launch {
@@ -137,9 +174,6 @@ class ProductoViewModel(
         }
     }
 
-    // ------------------------------------------------------
-    // CAMBIAR ESTADO MANUAL
-    // ------------------------------------------------------
     fun cambiarEstadoManual(idProducto: Int, nuevoEstado: EstadoProducto) {
         viewModelScope.launch {
             repository.updateEstado(idProducto, nuevoEstado)
@@ -160,7 +194,9 @@ class ProductoViewModel(
 
             repository.updateStock(idProducto, nuevoStock)
 
-            if (nuevoStock == 0) repository.updateEstado(idProducto, EstadoProducto.SIN_STOCK)
+            if (nuevoStock == 0)
+                repository.updateEstado(idProducto, EstadoProducto.SIN_STOCK)
+
             setSuccess("Stock actualizado correctamente.")
         }
     }
@@ -184,20 +220,54 @@ class ProductoViewModel(
     // ------------------------------------------------------
     // SETTERS
     // ------------------------------------------------------
-    fun onNombreChange(v: String) { _state.value = _state.value.copy(nombre = v) }
+    fun onNombreChange(v: String) = update { copy(nombre = v) }
+    fun onPrecioChange(v: String) = update { copy(precio = v) }
+    fun onStockChange(v: String) = update { copy(stock = v) }
+    fun onCategoriaChange(v: Int) = update { copy(categoriaId = v) }
+    fun onEstadoChange(v: EstadoProducto) = update { copy(estado = v) }
 
-    fun onPrecioChange(v: String) { _state.value = _state.value.copy(precio = v) }
+    fun onImagenChange(v: Int?) = update { copy(imagenResId = v, imagenUri = null) }
+    fun onImagenUriChange(uri: String?) = update { copy(imagenUri = uri, imagenResId = null) }
 
-    fun onStockChange(v: String) { _state.value = _state.value.copy(stock = v) }
+    private fun update(reducer: ProductoUiState.() -> ProductoUiState) {
+        _state.value = _state.value.reducer()
+    }
 
-    fun onCategoriaChange(v: Int) { _state.value = _state.value.copy(categoriaId = v) }
+    // ------------------------------------------------------
+    // LIMPIEZA DE FORMULARIOS
+    // ------------------------------------------------------
+    private fun limpiarFormulario(msg: String) {
+        _state.value = _state.value.copy(
+            successMsg = msg,
+            errorMsg = null,
 
-    fun onEstadoChange(v: EstadoProducto) { _state.value = _state.value.copy(estado = v) }
+            nombre = "",
+            precio = "",
+            stock = "",
+            categoriaId = null,
+            estado = EstadoProducto.DISPONIBLE,
 
-    fun onImagenChange(v: Int?) { _state.value = _state.value.copy(imagenResId = v, imagenUri = null) }
+            imagenResId = null,
+            imagenUri = null,
 
-    fun onImagenUriChange(uri: String?) {
-        _state.value = _state.value.copy(imagenUri = uri, imagenResId = null)
+            productoEnEdicionId = null
+        )
+    }
+
+    // ⭐ Nueva función solicitada
+    fun resetFormulario() {
+        _state.value = _state.value.copy(
+            nombre = "",
+            precio = "",
+            stock = "",
+            categoriaId = null,
+            estado = EstadoProducto.DISPONIBLE,
+            imagenResId = null,
+            imagenUri = null,
+            productoEnEdicionId = null,
+            errorMsg = null,
+            successMsg = null
+        )
     }
 
     // ------------------------------------------------------

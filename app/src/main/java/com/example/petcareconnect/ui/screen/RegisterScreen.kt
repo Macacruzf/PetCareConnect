@@ -35,10 +35,14 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 import java.io.File
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.petcareconnect.ui.theme.PetBlueAccent
+import com.example.petcareconnect.ui.theme.PetGreenPrimary
+import androidx.compose.foundation.BorderStroke   // ⭐ IMPORT NECESARIO
 
-// -----------------------------------------------------------
-// RegisterScreenVm: versión con ViewModel conectado
-// -----------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// RegisterScreenVm
+// ---------------------------------------------------------------------------
 @Composable
 fun RegisterScreenVm(
     vm: AuthViewModel,
@@ -47,14 +51,18 @@ fun RegisterScreenVm(
 ) {
     val state by vm.register.collectAsStateWithLifecycle()
 
-    // Siempre se fuerza el rol CLIENTE
+    // Siempre rol CLIENTE
     LaunchedEffect(Unit) {
         vm.onRolChange("CLIENTE")
     }
 
-    if (state.success) {
-        vm.clearRegisterResult()
-        onRegisteredNavigateLogin()
+    // ⭐ Limpia TODO al registrar correctamente
+    LaunchedEffect(state.success) {
+        if (state.success) {
+            vm.clearRegisterResult()
+            vm.resetRegisterForm()
+            onRegisteredNavigateLogin()
+        }
     }
 
     RegisterScreen(
@@ -83,9 +91,10 @@ fun RegisterScreenVm(
     )
 }
 
-// -----------------------------------------------------------
-// RegisterScreen: pantalla de registro sin campo de Rol
-// -----------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// UI RegisterScreen
+// ---------------------------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegisterScreen(
@@ -120,7 +129,7 @@ private fun RegisterScreen(
     var imageUri by remember { mutableStateOf<Uri?>(fotoUri?.let { Uri.parse(it) }) }
     val photoUri = remember { mutableStateOf<Uri?>(null) }
 
-    // 🔹 Cámara real (TakePicture)
+    // --------------- Cámara ----------------
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -130,7 +139,6 @@ private fun RegisterScreen(
         }
     }
 
-    // 🔹 Permiso de cámara
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -144,7 +152,7 @@ private fun RegisterScreen(
         }
     }
 
-    // 🔹 Galería
+    // Galería
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -154,13 +162,18 @@ private fun RegisterScreen(
         }
     }
 
+
+    // ---------------------------------------------------------------------------
+    // UI GENERAL
+    // ---------------------------------------------------------------------------
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(Color(0xFFF8FAFF))
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -168,9 +181,8 @@ private fun RegisterScreen(
                 .animateContentSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // -----------------------------------------------------------
-            // FOTO DE PERFIL
-            // -----------------------------------------------------------
+
+            // ------------------ FOTO DE PERFIL ------------------
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -196,13 +208,13 @@ private fun RegisterScreen(
                 }
             }
 
-            // -----------------------------------------------------------
-            // MENÚ (CÁMARA / GALERÍA)
-            // -----------------------------------------------------------
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
                 DropdownMenuItem(
                     text = { Text("Tomar foto") },
-                    leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.CameraAlt, null) },
                     onClick = {
                         showMenu = false
                         cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
@@ -210,7 +222,7 @@ private fun RegisterScreen(
                 )
                 DropdownMenuItem(
                     text = { Text("Elegir desde galería") },
-                    leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.Image, null) },
                     onClick = {
                         showMenu = false
                         galleryLauncher.launch("image/*")
@@ -220,30 +232,36 @@ private fun RegisterScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // -----------------------------------------------------------
-            // CAMPOS DEL FORMULARIO
-            // -----------------------------------------------------------
+            // ------------------ CAMPOS ------------------
             RegisterField("Nombre completo", name, onNameChange, nameError)
             RegisterField("Correo electrónico", email, onEmailChange, emailError, KeyboardType.Email)
             RegisterField("Teléfono", phone, onPhoneChange, phoneError, KeyboardType.Number)
 
             PasswordField("Contraseña", pass, onPassChange, passError, showPass) { showPass = !showPass }
-            PasswordField("Confirmar contraseña", confirm, onConfirmChange, confirmError, showConfirm) { showConfirm = !showConfirm }
+            PasswordField("Confirmar contraseña", confirm, onConfirmChange, confirmError, showConfirm) {
+                showConfirm = !showConfirm
+            }
 
             Spacer(Modifier.height(20.dp))
 
-            // -----------------------------------------------------------
-            // BOTÓN REGISTRARSE
-            // -----------------------------------------------------------
+            // ------------------ BOTÓN PRINCIPAL (VERDE) ------------------
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit && !isSubmitting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PetGreenPrimary,
+                    contentColor = Color.White
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
                 if (isSubmitting) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White
+                    )
                     Spacer(Modifier.width(8.dp))
                     Text("Creando cuenta...")
                 } else {
@@ -257,16 +275,28 @@ private fun RegisterScreen(
             }
 
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onGoLogin, modifier = Modifier.fillMaxWidth()) {
+
+            // ------------------ BOTÓN SECUNDARIO (AZUL) ------------------
+            OutlinedButton(
+                onClick = onGoLogin,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = PetBlueAccent
+                ),
+                border = BorderStroke(1.dp, PetBlueAccent),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
                 Text("¿Ya tienes cuenta? Inicia sesión")
             }
         }
     }
 }
 
-// -----------------------------------------------------------
-// Campos reutilizables
-// -----------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// COMPONENTES REUTILIZABLES
+// ---------------------------------------------------------------------------
 @Composable
 fun RegisterField(
     label: String,
@@ -285,7 +315,7 @@ fun RegisterField(
         modifier = Modifier.fillMaxWidth()
     )
     error?.let {
-        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        Text(it, color = MaterialTheme.colorScheme.error)
     }
     Spacer(Modifier.height(8.dp))
 }
@@ -317,7 +347,7 @@ fun PasswordField(
         modifier = Modifier.fillMaxWidth()
     )
     error?.let {
-        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        Text(it, color = MaterialTheme.colorScheme.error)
     }
     Spacer(Modifier.height(8.dp))
 }

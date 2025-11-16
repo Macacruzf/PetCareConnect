@@ -1,6 +1,8 @@
 package com.example.petcareconnect.ui.screen
 
+import android.Manifest
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -25,19 +27,24 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import coil.compose.rememberAsyncImagePainter
 import com.example.petcareconnect.data.db.PetCareDatabase
-import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.model.EstadoProducto
+import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.data.repository.ProductoRepository
+import com.example.petcareconnect.ui.theme.PetBlueAccent
+import com.example.petcareconnect.ui.theme.PetGreenPrimary
+import com.example.petcareconnect.ui.theme.PetOrangeSecondary
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
+import java.io.File
 
 // ---------------------------------------------------------
-//                 PRODUCTO SCREEN
+//                 PRODUCTO SCREEN (con Scaffold)
 // ---------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +54,7 @@ fun ProductoScreen(
 ) {
     val context = LocalContext.current
 
+    // DB + repos
     val db = remember {
         Room.databaseBuilder(
             context,
@@ -64,15 +72,32 @@ fun ProductoScreen(
 
     val state by vm.state.collectAsState()
 
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialogAgregar by remember { mutableStateOf(false) }
+    var showDialogEditar by remember { mutableStateOf(false) }
     var selectedProducto by remember { mutableStateOf<Producto?>(null) }
+
     var categoriaSeleccionada by remember { mutableStateOf("Todas") }
     var expandedFiltro by remember { mutableStateOf(false) }
 
     val isAdmin = rol == "ADMIN"
     val isCliente = rol == "CLIENTE" || rol == "INVITADO"
 
-    // FILTRO
+    // Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Mostrar mensajes de éxito / error
+    LaunchedEffect(state.successMsg, state.errorMsg) {
+        state.successMsg?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.limpiarMensajes()
+        }
+        state.errorMsg?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.limpiarMensajes()
+        }
+    }
+
+    // FILTRO POR CATEGORÍA
     val productosFiltrados = remember(state.productos, categoriaSeleccionada) {
         if (categoriaSeleccionada == "Todas") state.productos
         else state.productos.filter {
@@ -81,127 +106,162 @@ fun ProductoScreen(
         }
     }
 
-    // -----------------------------------------------------
-    // PANTALLA
-    // -----------------------------------------------------
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(16.dp)
-    ) {
-        Column {
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (isAdmin) {
+                ExtendedFloatingActionButton(
+                    onClick = { showDialogAgregar = true },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = "Nuevo producto") },
+                    text = { Text("Nuevo producto") },
+                    containerColor = PetGreenPrimary,
+                    contentColor = Color.White
+                )
+            }
+        }
+    ) { innerPadding ->
 
-            Text(
-                "Productos disponibles",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF2196F3)
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F5F5))
+                .padding(16.dp)
+                .padding(innerPadding)
+        ) {
+            Column {
 
-            Spacer(Modifier.height(10.dp))
-
-            // FILTRO POR CATEGORÍA
-            ExposedDropdownMenuBox(
-                expanded = expandedFiltro,
-                onExpandedChange = { expandedFiltro = !expandedFiltro }
-            ) {
-                OutlinedTextField(
-                    value = categoriaSeleccionada,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Filtrar por categoría") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                Text(
+                    "Productos disponibles",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = PetBlueAccent
                 )
 
-                ExposedDropdownMenu(
+                Spacer(Modifier.height(10.dp))
+
+                // FILTRO CATEGORÍA
+                ExposedDropdownMenuBox(
                     expanded = expandedFiltro,
-                    onDismissRequest = { expandedFiltro = false }
+                    onExpandedChange = { expandedFiltro = !expandedFiltro }
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Todas") },
-                        onClick = {
-                            categoriaSeleccionada = "Todas"
-                            expandedFiltro = false
-                        }
+                    OutlinedTextField(
+                        value = categoriaSeleccionada,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Filtrar por categoría") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
                     )
 
-                    state.categorias.forEach { categoria ->
+                    ExposedDropdownMenu(
+                        expanded = expandedFiltro,
+                        onDismissRequest = { expandedFiltro = false }
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(categoria.nombre) },
+                            text = { Text("Todas") },
                             onClick = {
-                                categoriaSeleccionada = categoria.nombre
+                                categoriaSeleccionada = "Todas"
                                 expandedFiltro = false
                             }
                         )
+
+                        state.categorias.forEach { categoria ->
+                            DropdownMenuItem(
+                                text = { Text(categoria.nombre) },
+                                onClick = {
+                                    categoriaSeleccionada = categoria.nombre
+                                    expandedFiltro = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                if (productosFiltrados.isEmpty()) {
+                    Text("No hay productos registrados aún.")
+                } else {
+                    // LISTA DE PRODUCTOS
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(productosFiltrados) { producto ->
+                            ProductoCard(
+                                producto = producto,
+                                isAdmin = isAdmin,
+                                isCliente = isCliente,
+                                onClick = { selectedProducto = producto },
+                                onDelete = { vm.deleteProducto(producto.idProducto) },
+                                onEditar = {
+                                    vm.cargarProductoParaEdicion(producto)
+                                    showDialogEditar = true
+                                },
+                                onCambiarEstado = { estado ->
+                                    vm.cambiarEstadoManual(producto.idProducto, estado)
+                                },
+                                onAgregarAlCarrito = { onAgregarAlCarrito(producto) }
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            // LISTA DE PRODUCTOS
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(productosFiltrados) { producto ->
-                    ProductoCard(
-                        producto = producto,
-                        isAdmin = isAdmin,
-                        isCliente = isCliente,
-                        onClick = { selectedProducto = producto },
-                        onDelete = { vm.deleteProducto(producto.idProducto) },
-                        onCambiarEstado = { estado ->
-                            vm.cambiarEstadoManual(producto.idProducto, estado)
-                        },
-                        onAgregarAlCarrito = { onAgregarAlCarrito(producto) }
-                    )
-                }
-            }
-
-            if (isAdmin) {
-                Spacer(Modifier.height(15.dp))
-                ExtendedFloatingActionButton(
-                    onClick = { showDialog = true },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Nuevo producto") },
-                    containerColor = Color(0xFF4CAF50)
+            // ➤ AGREGAR PRODUCTO
+            if (showDialogAgregar) {
+                DialogAgregarProducto(
+                    vm = vm,
+                    onDismiss = {
+                        vm.limpiarMensajes()
+                        showDialogAgregar = false
+                    },
+                    onGuardar = {
+                        vm.insertProducto()  // limpia formulario adentro
+                        showDialogAgregar = false
+                    }
                 )
             }
-        }
 
-        // DIALOG AGREGAR
-        if (showDialog) {
-            DialogAgregarProducto(
-                onDismiss = { showDialog = false },
-                onGuardar = {
-                    vm.insertProducto()
-                    showDialog = false
-                },
-                vm = vm
-            )
-        }
+            // ➤ EDITAR PRODUCTO
+            if (showDialogEditar) {
+                DialogEditarProducto(
+                    vm = vm,
+                    onDismiss = {
+                        vm.limpiarMensajes()
+                        showDialogEditar = false
+                    },
+                    onGuardar = {
+                        vm.editarProducto()  // limpia formulario adentro
+                        showDialogEditar = false
+                    }
+                )
+            }
 
-        // DIALOG DETALLE
-        if (selectedProducto != null) {
-            ProductoDetalleDialog(
-                producto = selectedProducto!!,
-                esAdmin = isAdmin,
-                onCambiarEstado = { estado ->
-                    vm.cambiarEstadoManual(selectedProducto!!.idProducto, estado)
-                },
-                onAgregar = {
-                    onAgregarAlCarrito(it)
-                    selectedProducto = null
-                },
-                onEliminar = {
-                    vm.deleteProducto(selectedProducto!!.idProducto)
-                    selectedProducto = null
-                },
-                onCerrar = { selectedProducto = null }
-            )
+            // ➤ DETALLE PRODUCTO
+            if (selectedProducto != null) {
+                ProductoDetalleDialog(
+                    producto = selectedProducto!!,
+                    esAdmin = isAdmin,
+                    onCambiarEstado = { estado ->
+                        vm.cambiarEstadoManual(selectedProducto!!.idProducto, estado)
+                    },
+                    onAgregar = {
+                        onAgregarAlCarrito(it)
+                        selectedProducto = null
+                    },
+                    onEliminar = {
+                        vm.deleteProducto(selectedProducto!!.idProducto)
+                        selectedProducto = null
+                    },
+                    onCerrar = { selectedProducto = null },
+                    onEditar = {
+                        vm.cargarProductoParaEdicion(selectedProducto!!)
+                        selectedProducto = null
+                        showDialogEditar = true
+                    }
+                )
+            }
         }
     }
 }
@@ -216,9 +276,12 @@ fun ProductoCard(
     isCliente: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onEditar: () -> Unit,
     onCambiarEstado: (EstadoProducto) -> Unit,
     onAgregarAlCarrito: () -> Unit
 ) {
+    val puedeAgregar = producto.stock > 0 && producto.estado == EstadoProducto.DISPONIBLE
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,97 +290,113 @@ fun ProductoCard(
         shape = RoundedCornerShape(10.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Row(
+
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
 
-            // Imagen (URI o drawable)
-            when {
-                // 1) Imagen desde URI (galería/cámara)
-                producto.imagenUri != null -> {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = producto.imagenUri),
-                        contentDescription = producto.nombre,
-                        modifier = Modifier
-                            .size(65.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Imagen
+                when {
+                    producto.imagenUri != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = producto.imagenUri),
+                            contentDescription = producto.nombre,
+                            modifier = Modifier
+                                .size(65.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    producto.imagenResId != null -> {
+                        Image(
+                            painter = painterResource(id = producto.imagenResId),
+                            contentDescription = producto.nombre,
+                            modifier = Modifier
+                                .size(65.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    else -> {
+                        Icon(
+                            Icons.Default.Pets,
+                            contentDescription = null,
+                            modifier = Modifier.size(65.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-                // 2) Imagen por recurso drawable (semillas)
-                producto.imagenResId != null -> {
-                    Image(
-                        painter = painterResource(id = producto.imagenResId),
-                        contentDescription = producto.nombre,
-                        modifier = Modifier
-                            .size(65.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                // 3) Icono por defecto
-                else -> {
-                    Icon(
-                        Icons.Default.Pets,
-                        contentDescription = null,
-                        modifier = Modifier.size(65.dp),
-                        tint = MaterialTheme.colorScheme.primary
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(producto.nombre, fontWeight = FontWeight.Bold)
+                    Text("Precio: $${producto.precio}")
+                    Text("Stock: ${producto.stock}")
+
+                    val estadoColor = when (producto.estado) {
+                        EstadoProducto.DISPONIBLE -> Color(0xFF4CAF50)
+                        EstadoProducto.NO_DISPONIBLE -> Color(0xFF9E9E9E)
+                        EstadoProducto.SIN_STOCK -> Color(0xFFFF9800)
+                    }
+
+                    Text(
+                        "Estado: ${producto.estado.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                        color = estadoColor,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.height(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(producto.nombre, fontWeight = FontWeight.Bold)
-                Text("Precio: $${producto.precio}")
-                Text("Stock: ${producto.stock}")
-
-                val estadoColor = when (producto.estado) {
-                    EstadoProducto.DISPONIBLE -> Color(0xFF4CAF50)
-                    EstadoProducto.NO_DISPONIBLE -> Color(0xFF9E9E9E)
-                    EstadoProducto.SIN_STOCK -> Color(0xFFFF9800)
-                }
-
-                Text(
-                    "Estado: ${producto.estado.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    color = estadoColor,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // ACCIONES ADMIN
+            // ⭐ ACCIONES EN HORIZONTAL ⭐
             if (isAdmin) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
 
                     IconButton(onClick = { onCambiarEstado(EstadoProducto.DISPONIBLE) }) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = "Disponible", tint = Color(0xFF4CAF50))
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
                     }
+
                     IconButton(onClick = { onCambiarEstado(EstadoProducto.NO_DISPONIBLE) }) {
-                        Icon(Icons.Filled.Block, contentDescription = "No disponible", tint = Color(0xFF616161))
+                        Icon(Icons.Filled.Block, contentDescription = null, tint = Color(0xFF616161))
                     }
+
                     IconButton(onClick = { onCambiarEstado(EstadoProducto.SIN_STOCK) }) {
-                        Icon(Icons.Filled.Warning, contentDescription = "Sin stock", tint = Color(0xFFFF9800))
+                        Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFFF9800))
+                    }
+
+                    IconButton(onClick = onEditar) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, tint = Color(0xFF1976D2))
                     }
 
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = Color(0xFFD32F2F))
+                        Icon(Icons.Filled.Delete, contentDescription = null, tint = Color(0xFFD32F2F))
                     }
-
-                    // Pequeña ayuda visual
-                    Text("Disp / No / Sin", style = MaterialTheme.typography.labelSmall)
                 }
             } else if (isCliente) {
+
                 Button(
                     onClick = onAgregarAlCarrito,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800))
+                    enabled = puedeAgregar,
+                    colors = ButtonDefaults.buttonColors(containerColor = PetOrangeSecondary),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Agregar")
+                    Text(if (puedeAgregar) "Agregar" else "Sin stock / no disponible")
                 }
             }
         }
@@ -325,7 +404,7 @@ fun ProductoCard(
 }
 
 // ---------------------------------------------------------
-//             DIALOG DETALLE PRODUCTO
+//        DIALOG DETALLE PRODUCTO
 // ---------------------------------------------------------
 @Composable
 fun ProductoDetalleDialog(
@@ -334,15 +413,17 @@ fun ProductoDetalleDialog(
     onCambiarEstado: (EstadoProducto) -> Unit,
     onAgregar: (Producto) -> Unit,
     onEliminar: () -> Unit,
-    onCerrar: () -> Unit
+    onCerrar: () -> Unit,
+    onEditar: () -> Unit
 ) {
+    val puedeAgregar = producto.stock > 0 && producto.estado == EstadoProducto.DISPONIBLE
+
     AlertDialog(
         onDismissRequest = onCerrar,
         title = { Text(producto.nombre, fontWeight = FontWeight.Bold) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                // Imagen (URI o drawable)
                 when {
                     producto.imagenUri != null -> {
                         Image(
@@ -355,6 +436,7 @@ fun ProductoDetalleDialog(
                             contentScale = ContentScale.Crop
                         )
                     }
+
                     producto.imagenResId != null -> {
                         Image(
                             painter = painterResource(id = producto.imagenResId),
@@ -384,15 +466,25 @@ fun ProductoDetalleDialog(
                     Row(horizontalArrangement = Arrangement.SpaceEvenly) {
 
                         IconButton(onClick = { onCambiarEstado(EstadoProducto.DISPONIBLE) }) {
-                            Icon(Icons.Filled.CheckCircle, contentDescription = "Disponible", tint = Color(0xFF4CAF50))
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50)
+                            )
                         }
-
                         IconButton(onClick = { onCambiarEstado(EstadoProducto.NO_DISPONIBLE) }) {
-                            Icon(Icons.Filled.Block, contentDescription = "No disponible", tint = Color(0xFF616161))
+                            Icon(
+                                Icons.Filled.Block,
+                                contentDescription = null,
+                                tint = Color(0xFF616161)
+                            )
                         }
-
                         IconButton(onClick = { onCambiarEstado(EstadoProducto.SIN_STOCK) }) {
-                            Icon(Icons.Filled.Warning, contentDescription = "Sin stock", tint = Color(0xFFFF9800))
+                            Icon(
+                                Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9800)
+                            )
                         }
                     }
                 }
@@ -400,11 +492,16 @@ fun ProductoDetalleDialog(
         },
         confirmButton = {
             if (!esAdmin) {
-                Button(onClick = { onAgregar(producto) }) {
-                    Text("Agregar al carrito")
+                Button(
+                    onClick = { onAgregar(producto) },
+                    enabled = puedeAgregar
+                ) {
+                    Text(if (puedeAgregar) "Agregar al carrito" else "Sin stock / no disponible")
                 }
             } else {
-                OutlinedButton(onClick = onCerrar) { Text("Cerrar") }
+                OutlinedButton(onClick = onCerrar) {
+                    Text("Cerrar")
+                }
             }
         },
         dismissButton =
@@ -420,14 +517,14 @@ fun ProductoDetalleDialog(
 }
 
 // ---------------------------------------------------------
-//             DIALOG AGREGAR PRODUCTO
+//       DIALOG AGREGAR PRODUCTO
 // ---------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialogAgregarProducto(
+    vm: ProductoViewModel,
     onDismiss: () -> Unit,
-    onGuardar: () -> Unit,
-    vm: ProductoViewModel
+    onGuardar: () -> Unit
 ) {
     val state by vm.state.collectAsState()
     val context = LocalContext.current
@@ -435,44 +532,61 @@ fun DialogAgregarProducto(
     var expandedCategoria by remember { mutableStateOf(false) }
     var expandedEstado by remember { mutableStateOf(false) }
 
-    // Launcher único para cámara/galería (el sistema ofrece ambas opciones)
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        vm.onImagenUriChange(uri?.toString())
-    }
+    // CÁMARA
+    val photoUriState = remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success && photoUriState.value != null) {
+                vm.onImagenUriChange(photoUriState.value.toString())
+            }
+        }
+
+    val cameraPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                val file = File(context.cacheDir, "producto_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                photoUriState.value = uri
+                cameraLauncher.launch(uri)
+            } else {
+                Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    // GALERÍA
+    val galleryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            vm.onImagenUriChange(uri?.toString())
+        }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            Button(onClick = onGuardar) {
-                Text("Guardar")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancelar") }
-        },
+        confirmButton = { Button(onClick = onGuardar) { Text("Guardar") } },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text("Agregar producto") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-                Text("Imagen del producto", fontWeight = FontWeight.SemiBold)
+                Text("Imagen del producto", fontWeight = FontWeight.Bold)
 
-                // Botones "Cámara" y "Galería" (ambos abren el selector del sistema)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
                     OutlinedButton(
-                        onClick = { imagePickerLauncher.launch("image/*") },
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.PhotoCamera, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
                         Text("Cámara")
                     }
+
                     OutlinedButton(
-                        onClick = { imagePickerLauncher.launch("image/*") },
+                        onClick = { galleryLauncher.launch("image/*") },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Image, contentDescription = null)
@@ -481,7 +595,7 @@ fun DialogAgregarProducto(
                     }
                 }
 
-                // Vista previa
+                // VISTA PREVIA
                 Box(
                     modifier = Modifier
                         .size(140.dp)
@@ -501,7 +615,7 @@ fun DialogAgregarProducto(
                     }
                 }
 
-                // NOMBRE
+                // FORM
                 OutlinedTextField(
                     value = state.nombre,
                     onValueChange = vm::onNombreChange,
@@ -509,7 +623,6 @@ fun DialogAgregarProducto(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // PRECIO SOLO NÚMEROS (y punto)
                 OutlinedTextField(
                     value = state.precio,
                     onValueChange = {
@@ -520,7 +633,208 @@ fun DialogAgregarProducto(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // STOCK SOLO NÚMEROS
+                OutlinedTextField(
+                    value = state.stock,
+                    onValueChange = {
+                        if (it.all { c -> c.isDigit() }) vm.onStockChange(it)
+                    },
+                    label = { Text("Stock") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // CATEGORÍA
+                ExposedDropdownMenuBox(
+                    expanded = expandedCategoria,
+                    onExpandedChange = { expandedCategoria = !expandedCategoria }
+                ) {
+
+                    OutlinedTextField(
+                        value = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }?.nombre
+                            ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expandedCategoria,
+                        onDismissRequest = { expandedCategoria = false }
+                    ) {
+
+                        state.categorias.forEach { categoria ->
+                            DropdownMenuItem(
+                                text = { Text(categoria.nombre) },
+                                onClick = {
+                                    vm.onCategoriaChange(categoria.idCategoria)
+                                    expandedCategoria = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // ESTADO
+                ExposedDropdownMenuBox(
+                    expanded = expandedEstado,
+                    onExpandedChange = { expandedEstado = !expandedEstado }
+                ) {
+
+                    OutlinedTextField(
+                        value = state.estado.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Estado") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEstado)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expandedEstado,
+                        onDismissRequest = { expandedEstado = false }
+                    ) {
+
+                        EstadoProducto.values().forEach { estado ->
+                            DropdownMenuItem(
+                                text = { Text(estado.name) },
+                                onClick = {
+                                    vm.onEstadoChange(estado)
+                                    expandedEstado = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+// ---------------------------------------------------------
+//       DIALOG EDITAR PRODUCTO
+// ---------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DialogEditarProducto(
+    vm: ProductoViewModel,
+    onDismiss: () -> Unit,
+    onGuardar: () -> Unit
+) {
+    val state by vm.state.collectAsState()
+    val context = LocalContext.current
+
+    var expandedCategoria by remember { mutableStateOf(false) }
+    var expandedEstado by remember { mutableStateOf(false) }
+
+    // Cámara
+    val photoUriState = remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success && photoUriState.value != null) {
+                vm.onImagenUriChange(photoUriState.value.toString())
+            }
+        }
+
+    val cameraPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                val file = File(context.cacheDir, "edit_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                photoUriState.value = uri
+                cameraLauncher.launch(uri)
+            } else {
+                Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    // Galería
+    val galleryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            vm.onImagenUriChange(uri?.toString())
+        }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { Button(onClick = onGuardar) { Text("Actualizar") } },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancelar") } },
+        title = { Text("Editar producto") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+                Text("Imagen del producto", fontWeight = FontWeight.Bold)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                    OutlinedButton(
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Cámara")
+                    }
+
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Galería")
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFE0E0E0)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (state.imagenUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = state.imagenUri),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(Icons.Default.Pets, contentDescription = null, tint = Color.Gray)
+                    }
+                }
+
+                // FORM
+                OutlinedTextField(
+                    value = state.nombre,
+                    onValueChange = vm::onNombreChange,
+                    label = { Text("Nombre del producto") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = state.precio,
+                    onValueChange = {
+                        if (it.all { c -> c.isDigit() || c == '.' }) vm.onPrecioChange(it)
+                    },
+                    label = { Text("Precio") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 OutlinedTextField(
                     value = state.stock,
                     onValueChange = {

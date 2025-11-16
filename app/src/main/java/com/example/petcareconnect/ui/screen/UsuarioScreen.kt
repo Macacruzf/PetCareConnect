@@ -2,113 +2,128 @@ package com.example.petcareconnect.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.petcareconnect.data.model.Usuario
+import com.example.petcareconnect.ui.theme.PetBlueAccent
+import com.example.petcareconnect.ui.theme.PetGreenPrimary
+import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 
-/*
- * ---------------------------------------------------------------------------
- * UsuarioScreen
- * ---------------------------------------------------------------------------
- * Pantalla que muestra una lista de usuarios registrados en el sistema.
- * En esta versión inicial:
- *  - Es un panel de solo lectura (no editable).
- *  - Utiliza datos simulados (no provienen aún de una base de datos real).
- *  - Emplea componentes Material 3 con animaciones sutiles de elevación,
- *    sombras y transiciones visuales al interactuar.
- * ---------------------------------------------------------------------------
- */
 @Composable
-fun UsuarioScreen() {
+fun UsuarioScreen(
+    authViewModel: AuthViewModel,
+    onEditarUsuario: (Usuario) -> Unit = {}
+) {
+    val usuarios by authViewModel.allUsers.collectAsState()
 
-    // -----------------------------------------------------------------------
-    // Lista de usuarios de ejemplo (mock data)
-    // -----------------------------------------------------------------------
-    // Estos datos sirven para representar la estructura visual del listado.
-    // En una versión futura, se reemplazará por datos obtenidos desde
-    // una API o base de datos local (Room / Firebase).
-    // -----------------------------------------------------------------------
-    val usuarios = listOf(
-        "Verónica Rojas (Admin)",
-        "Carlos Díaz (Veterinario)",
-        "Ana Pérez (Recepcionista)",
-        "Pedro Salazar (Cliente)"
-    )
+    // Cargar usuarios al entrar
+    LaunchedEffect(Unit) { authViewModel.cargarUsuarios() }
 
-    // -----------------------------------------------------------------------
-    // CONTENEDOR PRINCIPAL
-    // -----------------------------------------------------------------------
-    // Box organiza el contenido centrado y define el fondo general.
-    // Incluye color de fondo gris claro (#F5F5F5) para resaltar las tarjetas.
-    // -----------------------------------------------------------------------
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(Color(0xFFF5F5F5))  // Fondo institucional
             .padding(16.dp)
     ) {
 
-        // -------------------------------------------------------------------
-        // COLUMNA PRINCIPAL
-        // -------------------------------------------------------------------
-        // Alinea verticalmente los elementos, centrando el encabezado y las
-        // tarjetas con separación uniforme entre ellas.
-        // -------------------------------------------------------------------
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // ---------------------------------------------------------------
-            // ENCABEZADO DE SECCIÓN
-            // ---------------------------------------------------------------
-            // Muestra el título de la pantalla con tipografía grande y negrita.
-            // Material 3 aplica una animación de opacidad sutil en recomposición.
-            // ---------------------------------------------------------------
+            // TÍTULO
             Text(
-                text = "Usuarios registrados",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                text = "Usuarios Registrados",
+                style = MaterialTheme.typography.headlineSmall,
+                color = PetGreenPrimary
             )
 
-            // ---------------------------------------------------------------
-            // LISTA DE TARJETAS DE USUARIO
-            // ---------------------------------------------------------------
-            // Cada usuario se representa con una tarjeta (Card) individual.
-            // La sombra y elevación aplicadas producen un efecto visual suave
-            // al mostrarse o recomponerse.
-            // ---------------------------------------------------------------
-            usuarios.forEach { nombre ->
+            if (usuarios.isEmpty()) {
+                Text(
+                    "No hay usuarios registrados.",
+                    color = Color.Gray
+                )
+            } else {
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxHeight()
                 ) {
 
-                    // -------------------------------------------------------
-                    // FILA INTERNA DE CADA TARJETA
-                    // -------------------------------------------------------
-                    // Cada fila contiene el nombre del usuario centrado
-                    // verticalmente dentro de un padding.
-                    // -------------------------------------------------------
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            nombre,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                    items(usuarios) { user ->
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                        ) {
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+
+                                // INFORMACIÓN
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = user.nombreUsuario,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color(0xFF333333)
+                                    )
+
+                                    Text(
+                                        text = user.email,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray
+                                    )
+
+                                    Text(
+                                        text = "Rol: ${user.rol}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = PetBlueAccent
+                                    )
+                                }
+
+                                // ACCIONES
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+
+                                    IconButton(onClick = { onEditarUsuario(user) }) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Editar usuario",
+                                            tint = PetGreenPrimary
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { authViewModel.deleteUser(user.idUsuario) }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Eliminar usuario",
+                                            tint = Color(0xFFD32F2F) // rojo más elegante
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

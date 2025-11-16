@@ -28,4 +28,12 @@ class UsuarioRepository(private val usuarioDao: UsuarioDao) {
     suspend fun getByEmail(email: String): Usuario? {
         return usuarioDao.getByEmail(email)
     }
+
+    suspend fun update(usuario: Usuario) {
+        usuarioDao.update(usuario)
+    }
+
+    suspend fun delete(usuario: Usuario) {
+        usuarioDao.delete(usuario)
+    }
 }

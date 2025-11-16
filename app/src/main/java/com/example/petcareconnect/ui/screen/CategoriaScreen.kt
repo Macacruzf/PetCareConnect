@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,79 +21,85 @@ import com.example.petcareconnect.data.db.PetCareDatabase
 import com.example.petcareconnect.data.repository.CategoriaRepository
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModel
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModelFactory
+import androidx.compose.foundation.shape.RoundedCornerShape
 
-/*
- * Pantalla de gestión de categorías de productos.
- * Permite crear, listar, editar y eliminar categorías almacenadas en la base de datos local.
- */
 @Composable
 fun CategoriaScreen() {
     val context = LocalContext.current
 
-    // Inicialización de la base de datos Room de forma persistente.
-    // remember evita que se reconstruya en cada recomposición.
     val db = remember {
         Room.databaseBuilder(
             context,
             PetCareDatabase::class.java,
             "petcare_db"
         )
-            .fallbackToDestructiveMigration() // Permite recrear la BD si cambia la estructura
+            .fallbackToDestructiveMigration()
             .build()
     }
 
-    // Crea un repositorio para acceder al DAO de categorías
     val repository = remember { CategoriaRepository(db.categoriaDao()) }
-
-    // Instancia del ViewModel asociado a esta pantalla, utilizando la fábrica personalizada
     val vm: CategoriaViewModel = viewModel(factory = CategoriaViewModelFactory(repository))
-
-    // Estado observable del ViewModel (categorías, campo de texto, errores, etc.)
     val state by vm.state.collectAsState()
 
-    // Variables de control del diálogo de edición
     var editDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var editNombre by remember { mutableStateOf("") }
 
-    // Estructura principal de la pantalla con un botón flotante
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { vm.insertCategoria() }, // Inserta una nueva categoría
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = "Agregar categoría",
-                    tint = Color.White
-                )
-            }
-        }
-    ) { padding ->
+    Scaffold { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            // Título de la pantalla
+
             Text(
                 text = "Gestión de Categorías",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.height(16.dp))
 
-            // Campo de texto para ingresar una nueva categoría
-            OutlinedTextField(
-                value = state.nombre,
-                onValueChange = vm::onNombreChange,
-                label = { Text("Nueva categoría") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Spacer(Modifier.height(20.dp))
 
-            // Mensaje de error si el campo está vacío o inválido
+            // ---------------------------
+            //  INPUT + BOTÓN AGREGAR
+            // ---------------------------
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                OutlinedTextField(
+                    value = state.nombre,
+                    onValueChange = vm::onNombreChange,
+                    label = { Text("Nueva categoría") },
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(Modifier.width(12.dp))
+
+                Button(
+                    onClick = { vm.insertCategoria() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50), // Verde institucional
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.size(65.dp),        // <-- Botón más grande y visible
+                    shape = RoundedCornerShape(14.dp)       // <-- Borde moderno y suave
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Agregar",
+                        modifier = Modifier.size(34.dp)      // <-- Ícono que SÍ se ve
+                    )
+                }
+            }
+
+
+
+            // Error message
             state.errorMsg?.let { msg ->
                 Text(
                     text = msg,
@@ -102,31 +108,34 @@ fun CategoriaScreen() {
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Lista de categorías almacenadas
+            // ---------------------------
+            // LISTA DE CATEGORÍAS
+            // ---------------------------
             LazyColumn {
                 items(state.categorias) { cat ->
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
                         elevation = CardDefaults.cardElevation(4.dp)
                     ) {
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Nombre de la categoría
+
                             Text(
                                 cat.nombre,
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.weight(1f)
                             )
 
-                            // Botón para abrir el diálogo de edición
                             IconButton(onClick = {
                                 editingId = cat.idCategoria
                                 editNombre = cat.nombre
@@ -135,16 +144,15 @@ fun CategoriaScreen() {
                                 Icon(
                                     Icons.Filled.Edit,
                                     contentDescription = "Editar",
-                                    tint = MaterialTheme.colorScheme.secondary
+                                    tint = Color(0xFF1976D2)
                                 )
                             }
 
-                            // Botón para eliminar una categoría
                             IconButton(onClick = { vm.deleteCategoria(cat.idCategoria) }) {
                                 Icon(
                                     Icons.Filled.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = Color.Red
+                                    tint = Color(0xFFD32F2F)
                                 )
                             }
                         }
@@ -153,7 +161,9 @@ fun CategoriaScreen() {
             }
         }
 
-        // Diálogo para editar una categoría existente
+        // ---------------------------
+        // DIALOGO EDITAR CATEGORÍA
+        // ---------------------------
         if (editDialog) {
             AlertDialog(
                 onDismissRequest = { editDialog = false },
@@ -167,13 +177,12 @@ fun CategoriaScreen() {
                     )
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        // Actualiza la categoría en base de datos
-                        if (editingId != null) {
-                            vm.updateCategoria(editingId!!, editNombre)
+                    Button(
+                        onClick = {
+                            editingId?.let { vm.updateCategoria(it, editNombre) }
+                            editDialog = false
                         }
-                        editDialog = false
-                    }) {
+                    ) {
                         Text("Guardar")
                     }
                 },

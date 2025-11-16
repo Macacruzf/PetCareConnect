@@ -1,25 +1,25 @@
 package com.example.petcareconnect.navigation
 
+import android.app.Application
 import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
-import kotlinx.coroutines.launch
-import com.example.petcareconnect.ui.components.*
+import com.example.petcareconnect.ui.components.AppDrawer
+import com.example.petcareconnect.ui.components.AppTopBar
+import com.example.petcareconnect.ui.components.defaultDrawerItems
 import com.example.petcareconnect.ui.screen.*
 import com.example.petcareconnect.ui.viewmodel.*
 import com.example.petcareconnect.data.model.Carrito
 import com.google.gson.Gson
-import android.app.Application
-import androidx.lifecycle.ViewModelProvider
-import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavGraph(
@@ -27,22 +27,19 @@ fun AppNavGraph(
     authViewModel: AuthViewModel,
     productoViewModel: ProductoViewModel
 ) {
-    // Estado del Drawer lateral (abierto/cerrado)
+
+    // ------- STATES --------
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    // Alcance de corrutinas para ejecutar animaciones o cambios de estado asíncronos
     val scope = rememberCoroutineScope()
-    // Estado para manejar mensajes flotantes (snackbar)
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Se obtiene el rol actual del usuario y sus datos desde el ViewModel de autenticación
-    val userRole by authViewModel.userRole.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
+    val userRole by authViewModel.userRole.collectAsState()
 
-    // ViewModels compartidos entre pantallas
     val carritoViewModel: CarritoViewModel = viewModel()
     val pedidosViewModel: PedidosViewModel = viewModel()
 
-    // --- Funciones para navegar entre pantallas ---
+    // ------- NAVEGADORES --------
     val goHome = { navController.navigate(Route.Home.path) }
     val goLogin = { navController.navigate(Route.Login.path) }
     val goRegister = { navController.navigate(Route.Register.path) }
@@ -52,59 +49,67 @@ fun AppNavGraph(
     val goUsuarios = { navController.navigate(Route.Usuarios.path) }
     val goCarrito = { navController.navigate(Route.Carrito.path) }
     val goPedidos = { navController.navigate(Route.PedidosClientes.path) }
+    val goPerfil = { navController.navigate(Route.Perfil.path) }
 
-    // Drawer principal de navegación lateral
+    // ==========================================================
+    //                    DRAWER + UI GENERAL
+    // ==========================================================
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            // Contenido del menú lateral con botones de navegación
             AppDrawer(
                 currentRoute = navController.currentBackStackEntry?.destination?.route,
                 items = defaultDrawerItems(
-                    onHome = {
-                        // Se cierra el drawer con animación (scope.launch)
+                    userRole = userRole,
+                    isLoggedIn = currentUser != null,
+                    onHome = { scope.launch { drawerState.close() }; goHome() },
+                    onProductos = { scope.launch { drawerState.close() }; goProductos() },
+                    onCategorias = { scope.launch { drawerState.close() }; goCategorias() },
+                    onUsuarios = { scope.launch { drawerState.close() }; goUsuarios() },
+                    onCarrito = { scope.launch { drawerState.close() }; goCarrito() },
+                    onPedidos = { scope.launch { drawerState.close() }; goPedidos() },
+                    onLogin = { scope.launch { drawerState.close() }; goLogin() },
+                    onRegister = { scope.launch { drawerState.close() }; goRegister() },
+                    onLogout = {
                         scope.launch { drawerState.close() }
+                        authViewModel.logout()
                         goHome()
-                    },
-                    onLogin = {
-                        scope.launch { drawerState.close() }
-                        goLogin()
-                    },
-                    onRegister = {
-                        scope.launch { drawerState.close() }
-                        goRegister()
                     }
                 )
             )
         }
     ) {
-        // Estructura visual principal de cada pantalla
+
         Scaffold(
             topBar = {
-                // Barra superior con icono de menú y navegación
                 AppTopBar(
-                    onOpenDrawer = { scope.launch { drawerState.open() } }, // animación de apertura lateral
+                    isLogged = currentUser != null,
+                    rol = userRole ?: "INVITADO",
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
                     onHome = goHome,
                     onLogin = goLogin,
-                    onRegister = goRegister
+                    onRegister = goRegister,
+                    onPerfil = goPerfil
                 )
             },
-            snackbarHost = { SnackbarHost(snackbarHostState) } // Contenedor de mensajes emergentes animados
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
 
-            // Controlador principal de rutas (NavHost)
+            // ==========================================================
+            //                           NAV HOST
+            // ==========================================================
+
             NavHost(
                 navController = navController,
                 startDestination = Route.Home.path,
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-                // Pantalla de inicio
+                // -------- HOME --------
                 composable(Route.Home.path) {
                     val state by productoViewModel.state.collectAsState()
 
-                    // Efecto que se ejecuta al entrar en la pantalla
-                    // LaunchedEffect es una animación controlada por corrutina (dispara tareas iniciales)
                     LaunchedEffect(Unit) {
                         if (state.categorias.isEmpty()) {
                             productoViewModel.recargarCategoriasManualmente()
@@ -119,7 +124,6 @@ fun AppNavGraph(
                         onGoLogin = goLogin,
                         onGoRegister = goRegister,
                         onAgregarAlCarrito = { producto ->
-                            // Agrega el producto al carrito
                             carritoViewModel.agregarItem(
                                 Carrito(
                                     idProducto = producto.idProducto,
@@ -129,10 +133,7 @@ fun AppNavGraph(
                                     imagenResId = producto.imagenResId
                                 )
                             )
-                            // Muestra un snackbar con animación
-                            scope.launch {
-                                snackbarHostState.showSnackbar("✅ ${producto.nombre} agregado al carrito")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("Producto agregado") }
                         },
                         onGoCategorias = goCategorias,
                         onGoUsuarios = goUsuarios,
@@ -140,14 +141,17 @@ fun AppNavGraph(
                         onAgregarProducto = { goProductos() },
                         onGoCarrito = goCarrito,
                         onGoPedidos = goPedidos,
-                        onLogout = {
-                            authViewModel.logout()
-                            navController.navigate(Route.Home.path)
+                        onLogout = { authViewModel.logout(); goHome() },
+                        onEditar = { producto ->
+                            navController.currentBackStackEntry?.savedStateHandle
+                                ?.set("productoId", producto.idProducto)
+
+                            navController.navigate("editarProducto")
                         }
                     )
                 }
 
-                // Pantalla de Login
+                // -------- LOGIN --------
                 composable(Route.Login.path) {
                     LoginScreenVm(
                         viewModel = authViewModel,
@@ -156,7 +160,7 @@ fun AppNavGraph(
                     )
                 }
 
-                // Pantalla de Registro
+                // -------- REGISTRO --------
                 composable(Route.Register.path) {
                     RegisterScreenVm(
                         vm = authViewModel,
@@ -165,25 +169,34 @@ fun AppNavGraph(
                     )
                 }
 
-                // Pantalla de Productos (solo visible si el rol lo permite)
+                // -------- PERFIL --------
+                composable(Route.Perfil.path) {
+                    PerfilScreen(
+                        usuario = currentUser,
+                        authViewModel = authViewModel,
+                        onVolver = goHome
+                    )
+                }
+
+                // -------- PRODUCTOS --------
                 composable(Route.Productos.path) {
                     ProductoScreen(rol = userRole)
                 }
 
-                // Pantalla de Categorías
-                composable(Route.Categorias.path) { CategoriaScreen() }
+                // -------- CATEGORÍAS --------
+                composable(Route.Categorias.path) {
+                    CategoriaScreen()
+                }
 
-                // Pantalla del Carrito
+                // -------- CARRITO --------
                 composable(Route.Carrito.path) {
                     CarritoScreen(
                         viewModel = carritoViewModel,
-                        onConfirmarCompra = {
-                            navController.navigate(Route.Pago.path)
-                        }
+                        onConfirmarCompra = { navController.navigate(Route.Pago.path) }
                     )
                 }
 
-                // Pantalla de selección de método de pago
+                // -------- PAGO --------
                 composable(Route.Pago.path) {
                     PagoScreen(
                         carritoViewModel = carritoViewModel,
@@ -196,61 +209,52 @@ fun AppNavGraph(
                     )
                 }
 
-                // Pago en tienda (efectivo o transferencia)
-                composable(
-                    route = "${Route.PagoEnTienda.path}/{metodoPago}",
-                    arguments = listOf(navArgument("metodoPago") { type = NavType.StringType })
-                ) { backStackEntry ->
+                // -------- PAGO EN TIENDA --------
+                composable("${Route.PagoEnTienda.path}/{metodoPago}") { backStackEntry ->
                     val metodoPago = backStackEntry.arguments?.getString("metodoPago") ?: "Efectivo"
 
-                    PagoEnTiendaScreen(onContinuar = {
-                        // Registra pedido con animación de navegación
-                        pedidosViewModel.registrarPedido(
-                            carritoViewModel.state.value.items,
-                            carritoViewModel.state.value.total,
-                            metodoPago
-                        )
-                        val total = carritoViewModel.state.value.total
-                        val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
-                        // Navegación animada al detalle de venta
-                        navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
-                        carritoViewModel.vaciarCarrito()
-                    })
+                    PagoEnTiendaScreen(
+                        onContinuar = {
+                            pedidosViewModel.registrarPedido(
+                                carritoViewModel.state.value.items,
+                                carritoViewModel.state.value.total,
+                                metodoPago
+                            )
+                            val total = carritoViewModel.state.value.total
+                            val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
+                            navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
+                            carritoViewModel.vaciarCarrito()
+                        }
+                    )
                 }
 
-                // Pago con tarjeta (simulación)
-                composable(
-                    route = "${Route.PagoTarjeta.path}/{metodoPago}",
-                    arguments = listOf(navArgument("metodoPago") { type = NavType.StringType })
-                ) { backStackEntry ->
+                // -------- SIMULACIÓN TARJETA --------
+                composable("${Route.PagoTarjeta.path}/{metodoPago}") { backStackEntry ->
                     val metodoPago = backStackEntry.arguments?.getString("metodoPago") ?: "Tarjeta"
 
-                    SimulacionPagoScreen(onPagoExitoso = {
-                        pedidosViewModel.registrarPedido(
-                            carritoViewModel.state.value.items,
-                            carritoViewModel.state.value.total,
-                            metodoPago
-                        )
-                        val total = carritoViewModel.state.value.total
-                        val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
-                        navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
-                        carritoViewModel.vaciarCarrito()
-                    })
+                    SimulacionPagoScreen(
+                        onPagoExitoso = {
+                            pedidosViewModel.registrarPedido(
+                                carritoViewModel.state.value.items,
+                                carritoViewModel.state.value.total,
+                                metodoPago
+                            )
+                            val total = carritoViewModel.state.value.total
+                            val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
+                            navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
+                            carritoViewModel.vaciarCarrito()
+                        }
+                    )
                 }
 
-                // Pantalla de detalle de venta
-                composable(
-                    route = "${Route.DetalleVenta.path}/{total}/{itemsJson}/{metodoPago}",
-                    arguments = listOf(
-                        navArgument("total") { type = NavType.StringType },
-                        navArgument("itemsJson") { type = NavType.StringType },
-                        navArgument("metodoPago") { type = NavType.StringType }
-                    )
-                ) { backStackEntry ->
-                    val total = backStackEntry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
-                    val itemsJson = backStackEntry.arguments?.getString("itemsJson")
-                    val metodoPago = backStackEntry.arguments?.getString("metodoPago") ?: "Desconocido"
-                    val items = Gson().fromJson(itemsJson, Array<Carrito>::class.java).toList()
+                // -------- DETALLE VENTA --------
+                composable("${Route.DetalleVenta.path}/{total}/{itemsJson}/{metodoPago}") { entry ->
+                    val total = entry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
+                    val itemsJson = entry.arguments?.getString("itemsJson")
+                    val metodoPago = entry.arguments?.getString("metodoPago") ?: "Desconocido"
+
+                    val items =
+                        Gson().fromJson(itemsJson, Array<Carrito>::class.java).toList()
 
                     DetalleVentaScreen(
                         total = total,
@@ -260,32 +264,79 @@ fun AppNavGraph(
                     )
                 }
 
-                // Pantalla de pedidos del cliente
+                // -------- PEDIDOS CLIENTE --------
                 composable(Route.PedidosClientes.path) {
                     val context = LocalContext.current
-                    val pedidosViewModel: PedidosViewModel = viewModel(
-                        factory = ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application)
+                    val pedidosVm: PedidosViewModel = viewModel(
+                        factory = ViewModelProvider.AndroidViewModelFactory(
+                            context.applicationContext as Application
+                        )
                     )
 
                     PedidosClienteScreen(
-                        pedidosViewModel = pedidosViewModel,
+                        pedidosViewModel = pedidosVm,
                         rol = userRole,
-                        onVolver = { navController.navigate(Route.Home.path) }
+                        onVolver = goHome
                     )
                 }
 
-                // Pantalla de historial de ventas
+                // -------- HISTORIAL --------
                 composable(Route.HistorialVentas.path) {
-                    val pedidosViewModel: PedidosViewModel = viewModel()
-
                     HistorialVentasScreen(
                         pedidosViewModel = pedidosViewModel,
-                        onVolver = { navController.navigate(Route.Home.path) }
+                        onVolver = goHome
                     )
                 }
 
-                // Pantalla de usuarios
-                composable(Route.Usuarios.path) { UsuarioScreen() }
+                // -------- USUARIOS --------
+                composable(Route.Usuarios.path) {
+                    UsuarioScreen(
+                        authViewModel = authViewModel,
+                        onEditarUsuario = { usuario ->
+                            navController.currentBackStackEntry?.savedStateHandle
+                                ?.set("idUsuarioEditar", usuario.idUsuario)
+
+                            navController.navigate(Route.EditarUsuario.path)
+                        }
+                    )
+                }
+
+                // -------- EDITAR USUARIO --------
+                composable(Route.EditarUsuario.path) {
+                    val id = navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<Int>("idUsuarioEditar")
+
+                    if (id != null) {
+                        EditarUsuarioScreen(
+                            idUsuario = id,
+                            authViewModel = authViewModel,
+                            onVolver = { navController.popBackStack() }
+                        )
+                    } else {
+                        Text("⚠ Error cargando usuario")
+                    }
+                }
+
+                // -------- EDITAR PRODUCTO --------
+                composable("editarProducto") {
+                    val productoId = navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<Int>("productoId")
+
+                    val state by productoViewModel.state.collectAsState()
+                    val producto = state.productos.firstOrNull { it.idProducto == productoId }
+
+                    if (producto != null) {
+                        EditarProductoScreen(
+                            productoViewModel = productoViewModel,
+                            producto = producto,
+                            onVolver = { navController.popBackStack() }
+                        )
+                    } else {
+                        Text("⚠ No se pudo cargar el producto.")
+                    }
+                }
             }
         }
     }

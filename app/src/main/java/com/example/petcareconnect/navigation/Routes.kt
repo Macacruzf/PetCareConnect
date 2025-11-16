@@ -1,9 +1,5 @@
 package com.example.petcareconnect.navigation
 
-// Esta clase sellada define todas las rutas utilizadas por la navegación del sistema.
-// Cada "data object" representa una pantalla o destino dentro del NavHost.
-// Usar una clase sellada permite mantener el control centralizado y evitar errores de escritura en los nombres de rutas.
-
 sealed class Route(val path: String) {
 
     // Pantalla principal de la aplicación (inicio)
@@ -21,27 +17,34 @@ sealed class Route(val path: String) {
     // Pantalla donde se muestran las categorías disponibles
     data object Categorias : Route("categorias")
 
-    // Pantalla de historial de ventas o pedidos realizados (para administradores)
+    // Pantalla de historial de ventas (ADMIN)
     data object HistorialVentas : Route("historial_ventas")
 
-    // Pantalla de gestión o listado de usuarios
+    // Pantalla de gestión/listado de usuarios (ADMIN)
     data object Usuarios : Route("usuarios")
 
-    // Pantalla que muestra los productos añadidos al carrito de compras
+    // Pantalla que muestra el carrito del usuario
     data object Carrito : Route("carrito")
 
-    // Pantalla de selección del método de pago
+    // Pantalla para elegir método de pago
     data object Pago : Route("pago")
 
-    // Pantalla específica para pagos realizados en tienda (efectivo o transferencia)
+    // Pantalla de pago en tienda
     data object PagoEnTienda : Route("pago_tienda")
 
-    // Pantalla de pago con tarjeta (simulación de pago electrónico)
+    // Pantalla de pago con tarjeta
     data object PagoTarjeta : Route("pago_tarjeta")
 
-    // Pantalla que muestra el detalle final de la venta, incluyendo productos y total pagado
+    // Pantalla de detalle final de una venta
     data object DetalleVenta : Route("detalle_venta")
 
-    // Pantalla que muestra los pedidos asociados a un cliente
+    // Pantalla que muestra los pedidos del cliente
     data object PedidosClientes : Route("pedidos_clientes")
+
+    // Pantalla del perfil del usuario
+    data object Perfil : Route("perfil")
+
+    // Pantalla de edición de usuario por administrador
+    data object EditarUsuario : Route("editar_usuario")
+
 }

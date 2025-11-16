@@ -14,43 +14,42 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-// Representa un elemento del menú lateral (Drawer)
+// -----------------------------
+// MODELO PARA EL ÍTEM DEL DRAWER
+// -----------------------------
 data class DrawerItem(
-    val label: String,          // Texto visible del ítem
-    val icon: ImageVector,      // Ícono asociado al ítem
-    val onClick: () -> Unit     // Acción que se ejecuta al seleccionarlo
+    val label: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit
 )
 
+// -----------------------------
+//      DRAWER COMPLETO
+// -----------------------------
 @Composable
 fun AppDrawer(
-    currentRoute: String?,       // Ruta actual para identificar el ítem seleccionado
-    items: List<DrawerItem>,     // Lista de opciones del menú
-    modifier: Modifier = Modifier // Modificador opcional
+    currentRoute: String?,
+    items: List<DrawerItem>,
+    modifier: Modifier = Modifier
 ) {
-    // Definición de la paleta de colores usada en el Drawer
-    val verde = Color(0xFF4CAF50)      // Verde corporativo
-    val grisClaro = Color(0xFFF5F5F5)  // Fondo suave del Drawer
-    val grisTexto = Color(0xFF333333)  // Color de texto de los ítems
+    val verde = Color(0xFF4CAF50)
+    val grisClaro = Color(0xFFF5F5F5)
+    val grisTexto = Color(0xFF333333)
 
-    // Contenedor principal del menú lateral
     ModalDrawerSheet(
-        modifier = modifier
-            .background(grisClaro) // Fondo general del Drawer
+        modifier = modifier.background(grisClaro)
     ) {
-        // Sección superior o encabezado
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(verde)   // Fondo verde del encabezado
-                .padding(24.dp)      // Espaciado interno
+                .background(verde)
+                .padding(24.dp)
         ) {
-            // Título principal (nombre de la aplicación)
             Text(
                 text = "PetCare Connect",
                 color = Color.White,
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
-            // Subtítulo o descripción
             Text(
                 text = "Tienda Veterinaria",
                 color = Color.White.copy(alpha = 0.85f),
@@ -58,33 +57,26 @@ fun AppDrawer(
             )
         }
 
-        // Cuerpo principal: lista de opciones del Drawer
         items.forEach { item ->
             NavigationDrawerItem(
-                label = { Text(item.label, color = grisTexto) }, // Texto del ítem
-                selected = false, // Podría ser (currentRoute == item.label.lowercase()) para destacar la actual
-                onClick = item.onClick, // Acción a ejecutar al presionar el ítem
+                label = { Text(item.label, color = grisTexto) },
+                selected = false,
+                onClick = item.onClick,
                 icon = {
                     Icon(
-                        item.icon, // Ícono asociado al ítem
+                        item.icon,
                         contentDescription = item.label,
-                        tint = verde // Íconos verdes para coherencia visual
+                        tint = verde
                     )
                 },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                colors = NavigationDrawerItemDefaults.colors(
-                    selectedContainerColor = verde.copy(alpha = 0.15f), // Fondo animado al seleccionar
-                    unselectedContainerColor = Color.Transparent
-                )
+                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
             )
         }
 
-        // Línea divisoria inferior antes del pie
         Divider(modifier = Modifier.padding(vertical = 12.dp))
 
-        // Texto del pie del Drawer (información adicional, versión)
         Text(
-            text = "Versión 1.0.0",
+            "Versión 1.0.0",
             modifier = Modifier.padding(horizontal = 16.dp),
             color = Color.Gray,
             style = MaterialTheme.typography.bodySmall
@@ -92,14 +84,47 @@ fun AppDrawer(
     }
 }
 
-// Función que retorna la lista predeterminada de ítems del Drawer
+// -----------------------------
+//   LISTA DINÁMICA DE OPCIONES
+// -----------------------------
 @Composable
 fun defaultDrawerItems(
-    onHome: () -> Unit,       // Acción al seleccionar “Inicio”
-    onLogin: () -> Unit,      // Acción al seleccionar “Iniciar sesión”
-    onRegister: () -> Unit    // Acción al seleccionar “Registro”
-): List<DrawerItem> = listOf(
-    DrawerItem("Inicio", Icons.Filled.Home, onHome),
-    DrawerItem("Iniciar sesión", Icons.Filled.AccountCircle, onLogin),
-    DrawerItem("Registro", Icons.Filled.Person, onRegister)
-)
+    userRole: String?,
+    isLoggedIn: Boolean,
+    onHome: () -> Unit,
+    onProductos: () -> Unit,
+    onCategorias: () -> Unit,
+    onUsuarios: () -> Unit,
+    onCarrito: () -> Unit,
+    onPedidos: () -> Unit,
+    onLogin: () -> Unit,
+    onRegister: () -> Unit,
+    onLogout: () -> Unit
+): List<DrawerItem> {
+
+    val items = mutableListOf<DrawerItem>()
+
+    // SIEMPRE
+    items.add(DrawerItem("Inicio", Icons.Filled.Home, onHome))
+
+    if (!isLoggedIn) {
+        items.add(DrawerItem("Iniciar sesión", Icons.Filled.AccountCircle, onLogin))
+        items.add(DrawerItem("Registrar", Icons.Filled.PersonAdd, onRegister))
+        return items
+    }
+
+    if (userRole == "CLIENTE") {
+        items.add(DrawerItem("Mi carrito", Icons.Filled.ShoppingCart, onCarrito))
+        items.add(DrawerItem("Mis pedidos", Icons.Filled.ShoppingBag, onPedidos))
+    }
+
+    if (userRole == "ADMIN") {
+        items.add(DrawerItem("Productos", Icons.Filled.Pets, onProductos))
+        items.add(DrawerItem("Categorías", Icons.Filled.Category, onCategorias))
+        items.add(DrawerItem("Usuarios", Icons.Filled.Group, onUsuarios))
+    }
+
+    items.add(DrawerItem("Cerrar sesión", Icons.Filled.Logout, onLogout))
+
+    return items
+}
