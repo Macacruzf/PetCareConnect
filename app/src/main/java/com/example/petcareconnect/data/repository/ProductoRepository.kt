@@ -19,7 +19,7 @@ class ProductoRepository(private val productoDao: ProductoDao) {
     }
 
     // Eliminar producto por ID
-    suspend fun deleteById(id: Int) {
+    suspend fun deleteById(id: Long) {
         productoDao.deleteById(id)
     }
 
@@ -36,5 +36,8 @@ class ProductoRepository(private val productoDao: ProductoDao) {
     // 🔹 ACTUALIZAR PRODUCTO COMPLETO
     suspend fun update(producto: Producto) {
         productoDao.update(producto)
+    }
+    suspend fun deleteAll() {
+        productoDao.deleteAll()
     }
 }

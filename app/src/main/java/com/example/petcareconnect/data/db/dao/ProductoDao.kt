@@ -22,7 +22,7 @@ interface ProductoDao {
 
     // Eliminar por ID
     @Query("DELETE FROM productos WHERE idProducto = :id")
-    suspend fun deleteById(id: Int)
+    suspend fun deleteById(id: Long)
 
     // Actualizar producto completo
     @Update
@@ -39,4 +39,7 @@ interface ProductoDao {
     // 🔹 NUEVO: actualizar SOLO la imagen desde URI
     @Query("UPDATE productos SET imagenUri = :nuevaUri WHERE idProducto = :id")
     suspend fun updateImagenUri(id: Int, nuevaUri: String?)
+    @Query("DELETE FROM productos")
+    suspend fun deleteAll()
+
 }

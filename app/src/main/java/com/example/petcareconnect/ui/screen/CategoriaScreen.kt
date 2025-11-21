@@ -19,30 +19,49 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.example.petcareconnect.data.db.PetCareDatabase
 import com.example.petcareconnect.data.repository.CategoriaRepository
+import com.example.petcareconnect.data.remote.ApiModule
+import com.example.petcareconnect.data.remote.CategoriaRemoteRepository
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModel
 import com.example.petcareconnect.ui.viewmodel.CategoriaViewModelFactory
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun CategoriaScreen() {
+
     val context = LocalContext.current
 
+    // DB LOCAL
     val db = remember {
         Room.databaseBuilder(
             context,
             PetCareDatabase::class.java,
             "petcare_db"
-        )
-            .fallbackToDestructiveMigration()
+        ).fallbackToDestructiveMigration()
             .build()
     }
 
-    val repository = remember { CategoriaRepository(db.categoriaDao()) }
-    val vm: CategoriaViewModel = viewModel(factory = CategoriaViewModelFactory(repository))
+    // ROOM Repository
+    val categoriaRepository = remember { CategoriaRepository(db.categoriaDao()) }
+
+    // ⭐ REPO REMOTO (AQUÍ SE USA categoriaApi)
+    val remoteRepo = remember {
+        CategoriaRemoteRepository(ApiModule.categoriaApi)
+    }
+
+    // VIEWMODEL (Microservicio + Room)
+    val vm: CategoriaViewModel = viewModel(
+        factory = CategoriaViewModelFactory(
+            repository = categoriaRepository,
+            remoteRepository = remoteRepo,     // ← AHORA SÍ USA EL BACKEND
+            roleProvider = { "ADMIN" }         // Cambiar luego por rol real
+        )
+    )
+
     val state by vm.state.collectAsState()
 
+    // Control de diálogo
     var editDialog by remember { mutableStateOf(false) }
-    var editingId by remember { mutableStateOf<Int?>(null) }
+    var editingId by remember { mutableStateOf<Long?>(null) }
     var editNombre by remember { mutableStateOf("") }
 
     Scaffold { padding ->
@@ -54,6 +73,7 @@ fun CategoriaScreen() {
                 .padding(16.dp)
         ) {
 
+            // TÍTULO
             Text(
                 text = "Gestión de Categorías",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
@@ -62,57 +82,59 @@ fun CategoriaScreen() {
 
             Spacer(Modifier.height(20.dp))
 
-            // ---------------------------
-            //  INPUT + BOTÓN AGREGAR
-            // ---------------------------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // -----------------------------------------------------
+            // INPUT CREACIÓN (solo ADMIN)
+            // -----------------------------------------------------
+            if (state.rol == "ADMIN") {
 
-                OutlinedTextField(
-                    value = state.nombre,
-                    onValueChange = vm::onNombreChange,
-                    label = { Text("Nueva categoría") },
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(Modifier.width(12.dp))
-
-                Button(
-                    onClick = { vm.insertCategoria() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50), // Verde institucional
-                        contentColor = Color.White
-                    ),
-                    modifier = Modifier.size(65.dp),        // <-- Botón más grande y visible
-                    shape = RoundedCornerShape(14.dp)       // <-- Borde moderno y suave
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Agregar",
-                        modifier = Modifier.size(34.dp)      // <-- Ícono que SÍ se ve
+
+                    OutlinedTextField(
+                        value = state.nombre,
+                        onValueChange = vm::onNombreChange,
+                        label = { Text("Nueva categoría") },
+                        modifier = Modifier.weight(1f)
                     )
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Button(
+                        onClick = { vm.insertCategoria() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.size(65.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Agregar",
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
                 }
             }
 
+            // -----------------------------------------------------
+            // MENSAJES
+            // -----------------------------------------------------
+            state.errorMsg?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
 
-
-            // Error message
-            state.errorMsg?.let { msg ->
-                Text(
-                    text = msg,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall
-                )
+            state.successMsg?.let {
+                Text(it, color = Color(0xFF2E7D32))
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // ---------------------------
+            // -----------------------------------------------------
             // LISTA DE CATEGORÍAS
-            // ---------------------------
+            // -----------------------------------------------------
             LazyColumn {
                 items(state.categorias) { cat ->
 
@@ -136,24 +158,29 @@ fun CategoriaScreen() {
                                 modifier = Modifier.weight(1f)
                             )
 
-                            IconButton(onClick = {
-                                editingId = cat.idCategoria
-                                editNombre = cat.nombre
-                                editDialog = true
-                            }) {
-                                Icon(
-                                    Icons.Filled.Edit,
-                                    contentDescription = "Editar",
-                                    tint = Color(0xFF1976D2)
-                                )
-                            }
+                            if (state.rol == "ADMIN") {
 
-                            IconButton(onClick = { vm.deleteCategoria(cat.idCategoria) }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = Color(0xFFD32F2F)
-                                )
+                                IconButton(onClick = {
+                                    editingId = cat.idCategoria.toLong()
+                                    editNombre = cat.nombre
+                                    editDialog = true
+                                }) {
+                                    Icon(
+                                        Icons.Filled.Edit,
+                                        contentDescription = "Editar",
+                                        tint = Color(0xFF1976D2)
+                                    )
+                                }
+
+                                IconButton(onClick = {
+                                    vm.deleteCategoria(cat.idCategoria.toLong())
+                                }) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = "Eliminar",
+                                        tint = Color(0xFFD32F2F)
+                                    )
+                                }
                             }
                         }
                     }
@@ -161,13 +188,15 @@ fun CategoriaScreen() {
             }
         }
 
-        // ---------------------------
-        // DIALOGO EDITAR CATEGORÍA
-        // ---------------------------
+        // ----------------------------------------------------
+        // DIÁLOGO EDITAR
+        // ----------------------------------------------------
         if (editDialog) {
+
             AlertDialog(
                 onDismissRequest = { editDialog = false },
                 title = { Text("Editar categoría") },
+
                 text = {
                     OutlinedTextField(
                         value = editNombre,
@@ -176,16 +205,16 @@ fun CategoriaScreen() {
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
+
                 confirmButton = {
                     Button(
                         onClick = {
                             editingId?.let { vm.updateCategoria(it, editNombre) }
                             editDialog = false
                         }
-                    ) {
-                        Text("Guardar")
-                    }
+                    ) { Text("Guardar") }
                 },
+
                 dismissButton = {
                     OutlinedButton(onClick = { editDialog = false }) {
                         Text("Cancelar")

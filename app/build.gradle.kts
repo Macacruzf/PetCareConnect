@@ -93,4 +93,45 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.11")
+
+    // ======================================================================
+// ✔ LIBRERÍAS PARA PRUEBAS UNITARIAS (NECESARIAS PARA ViewModelTest)
+// ======================================================================
+
+// JUnit (ya lo tienes, pero lo dejo para consistencia)
+    testImplementation("junit:junit:4.13.2")
+
+// Mockito para mocks
+    testImplementation("org.mockito:mockito-core:5.11.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+
+// Permite mockear clases final y funciones suspend
+    testImplementation("org.mockito:mockito-inline:5.2.0")
+
+// Coroutines Test — OBLIGATORIO para StateFlow y viewModelScope
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+
+// Para asserts más claros (opcional pero recomendado)
+    testImplementation("com.google.truth:truth:1.4.0")
+
+// Para testear LiveData/StateFlow fácilmente (contiene InstantTaskExecutorRule)
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+
+// ======================================================================
+// ✔ PRUEBAS INSTRUMENTADAS (androidTest) – SOLO SI LUEGO PRUEBAS UI
+// ======================================================================
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+
+    // JaCoCo para reportes de cobertura
+    testImplementation("org.jacoco:org.jacoco.core:0.8.8")
+
+// MockWebServer para simular servidor en pruebas unitarias (evita fallos por red)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
+// MockWebServer para pruebas instrumentadas (opcional, pero útil para APIs reales)
+
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")  // Para Compose
+
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")  // O versión más reciente
 }

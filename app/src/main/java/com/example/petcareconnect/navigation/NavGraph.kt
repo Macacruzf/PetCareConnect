@@ -18,6 +18,7 @@ import com.example.petcareconnect.ui.components.defaultDrawerItems
 import com.example.petcareconnect.ui.screen.*
 import com.example.petcareconnect.ui.viewmodel.*
 import com.example.petcareconnect.data.model.Carrito
+import com.example.petcareconnect.navigation.Route
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 
@@ -25,10 +26,10 @@ import kotlinx.coroutines.launch
 fun AppNavGraph(
     navController: NavHostController,
     authViewModel: AuthViewModel,
-    productoViewModel: ProductoViewModel
+    productoViewModel: ProductoViewModel,
+    ticketViewModel: TicketViewModel
 ) {
 
-    // ------- STATES --------
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -39,7 +40,7 @@ fun AppNavGraph(
     val carritoViewModel: CarritoViewModel = viewModel()
     val pedidosViewModel: PedidosViewModel = viewModel()
 
-    // ------- NAVEGADORES --------
+    // Navegadores
     val goHome = { navController.navigate(Route.Home.path) }
     val goLogin = { navController.navigate(Route.Login.path) }
     val goRegister = { navController.navigate(Route.Register.path) }
@@ -50,10 +51,6 @@ fun AppNavGraph(
     val goCarrito = { navController.navigate(Route.Carrito.path) }
     val goPedidos = { navController.navigate(Route.PedidosClientes.path) }
     val goPerfil = { navController.navigate(Route.Perfil.path) }
-
-    // ==========================================================
-    //                    DRAWER + UI GENERAL
-    // ==========================================================
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -96,25 +93,18 @@ fun AppNavGraph(
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
 
-            // ==========================================================
-            //                           NAV HOST
-            // ==========================================================
-
             NavHost(
                 navController = navController,
                 startDestination = Route.Home.path,
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-                // -------- HOME --------
+                // ============================
+                // HOME
+                // ============================
                 composable(Route.Home.path) {
-                    val state by productoViewModel.state.collectAsState()
 
-                    LaunchedEffect(Unit) {
-                        if (state.categorias.isEmpty()) {
-                            productoViewModel.recargarCategoriasManualmente()
-                        }
-                    }
+                    val state by productoViewModel.state.collectAsState()
 
                     HomeScreen(
                         rol = userRole,
@@ -141,9 +131,19 @@ fun AppNavGraph(
                         onAgregarProducto = { goProductos() },
                         onGoCarrito = goCarrito,
                         onGoPedidos = goPedidos,
-                        onLogout = { authViewModel.logout(); goHome() },
+                        onLogout = {
+                            authViewModel.logout()
+                            goHome()
+                        },
+                        onCambiarEstado = { producto ->
+                            productoViewModel.cambiarEstadoManual(
+                                producto.idProducto,
+                                producto.estado
+                            )
+                        },
                         onEditar = { producto ->
-                            navController.currentBackStackEntry?.savedStateHandle
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
                                 ?.set("productoId", producto.idProducto)
 
                             navController.navigate("editarProducto")
@@ -151,7 +151,9 @@ fun AppNavGraph(
                     )
                 }
 
-                // -------- LOGIN --------
+                // ============================
+                // LOGIN
+                // ============================
                 composable(Route.Login.path) {
                     LoginScreenVm(
                         viewModel = authViewModel,
@@ -160,7 +162,9 @@ fun AppNavGraph(
                     )
                 }
 
-                // -------- REGISTRO --------
+                // ============================
+                // REGISTRO
+                // ============================
                 composable(Route.Register.path) {
                     RegisterScreenVm(
                         vm = authViewModel,
@@ -169,7 +173,9 @@ fun AppNavGraph(
                     )
                 }
 
-                // -------- PERFIL --------
+                // ============================
+                // PERFIL
+                // ============================
                 composable(Route.Perfil.path) {
                     PerfilScreen(
                         usuario = currentUser,
@@ -178,151 +184,37 @@ fun AppNavGraph(
                     )
                 }
 
-                // -------- PRODUCTOS --------
+                // ============================
+                // PRODUCTOS
+                // ============================
                 composable(Route.Productos.path) {
-                    ProductoScreen(rol = userRole)
-                }
-
-                // -------- CATEGORÍAS --------
-                composable(Route.Categorias.path) {
-                    CategoriaScreen()
-                }
-
-                // -------- CARRITO --------
-                composable(Route.Carrito.path) {
-                    CarritoScreen(
-                        viewModel = carritoViewModel,
-                        onConfirmarCompra = { navController.navigate(Route.Pago.path) }
-                    )
-                }
-
-                // -------- PAGO --------
-                composable(Route.Pago.path) {
-                    PagoScreen(
-                        carritoViewModel = carritoViewModel,
-                        onEfectivoOTransferencia = {
-                            navController.navigate("${Route.PagoEnTienda.path}/Efectivo")
-                        },
-                        onTarjeta = {
-                            navController.navigate("${Route.PagoTarjeta.path}/Tarjeta")
-                        }
-                    )
-                }
-
-                // -------- PAGO EN TIENDA --------
-                composable("${Route.PagoEnTienda.path}/{metodoPago}") { backStackEntry ->
-                    val metodoPago = backStackEntry.arguments?.getString("metodoPago") ?: "Efectivo"
-
-                    PagoEnTiendaScreen(
-                        onContinuar = {
-                            pedidosViewModel.registrarPedido(
-                                carritoViewModel.state.value.items,
-                                carritoViewModel.state.value.total,
-                                metodoPago
-                            )
-                            val total = carritoViewModel.state.value.total
-                            val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
-                            navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
-                            carritoViewModel.vaciarCarrito()
-                        }
-                    )
-                }
-
-                // -------- SIMULACIÓN TARJETA --------
-                composable("${Route.PagoTarjeta.path}/{metodoPago}") { backStackEntry ->
-                    val metodoPago = backStackEntry.arguments?.getString("metodoPago") ?: "Tarjeta"
-
-                    SimulacionPagoScreen(
-                        onPagoExitoso = {
-                            pedidosViewModel.registrarPedido(
-                                carritoViewModel.state.value.items,
-                                carritoViewModel.state.value.total,
-                                metodoPago
-                            )
-                            val total = carritoViewModel.state.value.total
-                            val itemsJson = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
-                            navController.navigate("${Route.DetalleVenta.path}/$total/$itemsJson/$metodoPago")
-                            carritoViewModel.vaciarCarrito()
-                        }
-                    )
-                }
-
-                // -------- DETALLE VENTA --------
-                composable("${Route.DetalleVenta.path}/{total}/{itemsJson}/{metodoPago}") { entry ->
-                    val total = entry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
-                    val itemsJson = entry.arguments?.getString("itemsJson")
-                    val metodoPago = entry.arguments?.getString("metodoPago") ?: "Desconocido"
-
-                    val items =
-                        Gson().fromJson(itemsJson, Array<Carrito>::class.java).toList()
-
-                    DetalleVentaScreen(
-                        total = total,
-                        items = items,
-                        metodoPago = metodoPago,
-                        onFinalizar = { navController.navigate(Route.Home.path) }
-                    )
-                }
-
-                // -------- PEDIDOS CLIENTE --------
-                composable(Route.PedidosClientes.path) {
-                    val context = LocalContext.current
-                    val pedidosVm: PedidosViewModel = viewModel(
-                        factory = ViewModelProvider.AndroidViewModelFactory(
-                            context.applicationContext as Application
-                        )
-                    )
-
-                    PedidosClienteScreen(
-                        pedidosViewModel = pedidosVm,
+                    ProductoScreen(
                         rol = userRole,
-                        onVolver = goHome
-                    )
-                }
-
-                // -------- HISTORIAL --------
-                composable(Route.HistorialVentas.path) {
-                    HistorialVentasScreen(
-                        pedidosViewModel = pedidosViewModel,
-                        onVolver = goHome
-                    )
-                }
-
-                // -------- USUARIOS --------
-                composable(Route.Usuarios.path) {
-                    UsuarioScreen(
-                        authViewModel = authViewModel,
-                        onEditarUsuario = { usuario ->
-                            navController.currentBackStackEntry?.savedStateHandle
-                                ?.set("idUsuarioEditar", usuario.idUsuario)
-
-                            navController.navigate(Route.EditarUsuario.path)
+                        productoViewModel = productoViewModel,
+                        onAgregarAlCarrito = { producto ->
+                            carritoViewModel.agregarItem(
+                                Carrito(
+                                    idProducto = producto.idProducto,
+                                    nombre = producto.nombre,
+                                    precio = producto.precio,
+                                    cantidad = 1,
+                                    imagenResId = producto.imagenResId
+                                )
+                            )
+                            scope.launch { snackbarHostState.showSnackbar("Producto agregado") }
                         }
                     )
                 }
 
-                // -------- EDITAR USUARIO --------
-                composable(Route.EditarUsuario.path) {
-                    val id = navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.get<Int>("idUsuarioEditar")
-
-                    if (id != null) {
-                        EditarUsuarioScreen(
-                            idUsuario = id,
-                            authViewModel = authViewModel,
-                            onVolver = { navController.popBackStack() }
-                        )
-                    } else {
-                        Text("⚠ Error cargando usuario")
-                    }
-                }
-
-                // -------- EDITAR PRODUCTO --------
+                // ============================
+                // EDITAR PRODUCTO
+                // ============================
                 composable("editarProducto") {
-                    val productoId = navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.get<Int>("productoId")
+
+                    val productoId =
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.get<Long>("productoId")
 
                     val state by productoViewModel.state.collectAsState()
                     val producto = state.productos.firstOrNull { it.idProducto == productoId }
@@ -335,6 +227,174 @@ fun AppNavGraph(
                         )
                     } else {
                         Text("⚠ No se pudo cargar el producto.")
+                    }
+                }
+
+                // ============================
+                // CATEGORÍAS
+                // ============================
+                composable(Route.Categorias.path) {
+                    CategoriaScreen()
+                }
+
+                // ============================
+                // USUARIOS
+                // ============================
+                composable(Route.Usuarios.path) {
+                    UsuarioScreen(
+                        authViewModel = authViewModel,
+                        onEditarUsuario = { usuario ->
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("idUsuarioEditar", usuario.idUsuario)
+
+                            navController.navigate(Route.EditarUsuario.path)
+                        }
+                    )
+                }
+
+                // ============================
+                // EDITAR USUARIO
+                // ============================
+                composable(Route.EditarUsuario.path) {
+
+                    val id =
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.get<Int>("idUsuarioEditar")
+
+                    if (id != null) {
+                        EditarUsuarioScreen(
+                            idUsuario = id,
+                            authViewModel = authViewModel,
+                            onVolver = { navController.popBackStack() }
+                        )
+                    } else {
+                        Text("⚠ Error cargando usuario.")
+                    }
+                }
+
+                // ============================
+                // CARRITO
+                // ============================
+                composable(Route.Carrito.path) {
+                    CarritoScreen(
+                        viewModel = carritoViewModel,
+                        onConfirmarCompra = { navController.navigate(Route.Pago.path) }
+                    )
+                }
+
+                // ============================
+                // PAGO
+                // ============================
+                composable(Route.Pago.path) {
+                    PagoScreen(
+                        carritoViewModel = carritoViewModel,
+                        onEfectivoOTransferencia = {
+                            navController.navigate("${Route.PagoEnTienda.path}/Efectivo")
+                        },
+                        onTarjeta = {
+                            navController.navigate("${Route.PagoTarjeta.path}/Tarjeta")
+                        }
+                    )
+                }
+
+                // ============================
+                // PAGO EN TIENDA
+                // ============================
+                composable("${Route.PagoEnTienda.path}/{metodoPago}") { entry ->
+                    val metodoPago = entry.arguments?.getString("metodoPago") ?: "Efectivo"
+
+                    PagoEnTiendaScreen(
+                        onContinuar = {
+                            pedidosViewModel.registrarPedido(
+                                carritoViewModel.state.value.items,
+                                carritoViewModel.state.value.total,
+                                metodoPago
+                            )
+
+                            val total = carritoViewModel.state.value.total
+                            val json = Uri.encode(Gson().toJson(carritoViewModel.state.value.items))
+
+                            navController.navigate("${Route.DetalleVenta.path}/$total/$json/$metodoPago")
+
+                            carritoViewModel.vaciarCarrito()
+                        }
+                    )
+                }
+
+                // ============================
+                // DETALLE VENTA
+                // ============================
+                composable("${Route.DetalleVenta.path}/{total}/{itemsJson}/{metodoPago}") { entry ->
+
+                    val total = entry.arguments?.getString("total")!!.toDouble()
+                    val itemsJson = entry.arguments?.getString("itemsJson")
+                    val metodoPago = entry.arguments?.getString("metodoPago")!!
+
+                    val items = Gson().fromJson(itemsJson, Array<Carrito>::class.java).toList()
+
+                    DetalleVentaScreen(
+                        total = total,
+                        items = items,
+                        metodoPago = metodoPago,
+                        onFinalizar = { navController.navigate(Route.Home.path) }
+                    )
+                }
+
+                // ============================
+                // HISTORIAL DE VENTAS
+                // ============================
+                composable(Route.HistorialVentas.path) {
+                    HistorialVentasScreen(
+                        pedidosViewModel = pedidosViewModel,
+                        onVolver = goHome
+                    )
+                }
+
+                // ============================
+                // PEDIDOS CLIENTES
+                // ============================
+                composable(Route.PedidosClientes.path) {
+
+                    val context = LocalContext.current
+
+                    val pedidosVm: PedidosViewModel =
+                        viewModel(
+                            factory = ViewModelProvider.AndroidViewModelFactory(
+                                context.applicationContext as Application
+                            )
+                        )
+
+                    PedidosClienteScreen(
+                        pedidosViewModel = pedidosVm,
+                        rol = userRole,
+                        onVolver = goHome
+                    )
+                }
+
+                // ============================
+                // DETALLE PRODUCTO + RESEÑAS
+                // ============================
+                composable("detalleProducto/{productoId}") { entry ->
+
+                    val productoId = entry.arguments?.getString("productoId")?.toLongOrNull()
+                    val state by productoViewModel.state.collectAsState()
+
+                    // ⭐ Buscar producto asegurando conversión correcta
+                    val producto = state.productos.firstOrNull { it.idProducto.toLong() == productoId }
+
+                    // ⭐ Asegurar conversión de usuarioId a Long
+                    val usuarioId = authViewModel.currentUser.value?.idUsuario?.toLong() ?: 0L
+
+                    if (producto != null) {
+                        ProductoDetalleScreen(
+                            producto = producto,
+                            usuarioId = usuarioId,   // ← ahora es Long REAL
+                            vm = ticketViewModel
+                        )
+                    } else {
+                        Text("❌ Producto no encontrado")
                     }
                 }
             }

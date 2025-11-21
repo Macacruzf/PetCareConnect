@@ -7,21 +7,30 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CategoriaDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insert(categoria: Categoria)
 
-    @Query("SELECT * FROM categorias ORDER BY idCategoria DESC")
-    fun getAll(): Flow<List<Categoria>> // ✅ se usa para mostrar en pantalla
+    // ⭐ LISTADO REACTIVO — PARA OBSERVAR CAMBIOS
+    @Query("SELECT * FROM categorias ORDER BY nombre ASC")
+    fun getAll(): Flow<List<Categoria>>
 
-    @Query("SELECT * FROM categorias ORDER BY idCategoria DESC")
-    suspend fun getAllOnce(): List<Categoria> // ✅ se usa en la semilla inicial
+    // ⭐ LISTADO UNA SOLA VEZ — PARA REPOSITORIOS
+    @Query("SELECT * FROM categorias ORDER BY nombre ASC")
+    suspend fun getAllOnce(): List<Categoria>
+
+    @Query("DELETE FROM categorias WHERE idCategoria = :id")
+    suspend fun deleteById(id: Long)
 
     @Update
     suspend fun update(categoria: Categoria)
 
-    @Query("DELETE FROM categorias WHERE idCategoria = :id")
-    suspend fun deleteById(id: Int)
-
     @Query("DELETE FROM categorias")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM categorias WHERE idCategoria = :id")
+    suspend fun getById(id: Long): Categoria?
 }
+
+
+
+

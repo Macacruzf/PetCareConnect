@@ -5,38 +5,75 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.petcareconnect.data.db.PetCareDatabase
+
+// Repos locales
 import com.example.petcareconnect.data.repository.UsuarioRepository
 import com.example.petcareconnect.data.repository.ProductoRepository
 import com.example.petcareconnect.data.repository.CategoriaRepository
+
+// ViewModels
 import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 import com.example.petcareconnect.ui.viewmodel.AuthViewModelFactory
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModelFactory
+import com.example.petcareconnect.ui.viewmodel.TicketViewModel
+import com.example.petcareconnect.ui.viewmodel.TicketViewModelFactory
+
+// Pantalla raíz
 import com.example.petcareconnect.ui.screen.AppRootScreen
 
+// Retrofit
+import com.example.petcareconnect.data.remote.ApiModule
+import com.example.petcareconnect.data.remote.ProductoRemoteRepository
+import com.example.petcareconnect.data.remote.RetrofitClient
+import com.example.petcareconnect.data.remote.repository.TicketRemoteRepository
+
+// Token de sesión
+import com.example.petcareconnect.data.session.UserSession
+
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ✅ Inicializa la base de datos
+        // ⭐ Inicializar token provider de Retrofit
+        RetrofitClient.initTokenProvider {
+            UserSession.token
+        }
+
+        // ⭐ Base de datos local
         val db = PetCareDatabase.getDatabase(applicationContext)
 
-        // ✅ Crea los repositorios
         val usuarioRepo = UsuarioRepository(db.usuarioDao())
         val productoRepo = ProductoRepository(db.productoDao())
         val categoriaRepo = CategoriaRepository(db.categoriaDao())
 
-        // ✅ Crea los ViewModels
-        val authViewModel = AuthViewModelFactory(usuarioRepo).create(AuthViewModel::class.java)
-        val productoViewModel =
-            ProductoViewModelFactory(productoRepo, categoriaRepo).create(ProductoViewModel::class.java)
+        // ⭐ Repos remotos (API)
+        val productoRemoteRepo = ProductoRemoteRepository(ApiModule.productoApi)
+        val ticketRemoteRepo = TicketRemoteRepository()
 
-        // ✅ Renderiza la aplicación pasando los ViewModels
+        // ⭐ ViewModel Auth
+        val authViewModel = AuthViewModelFactory(usuarioRepo)
+            .create(AuthViewModel::class.java)
+
+        // ⭐ ViewModel Productos
+        val productoViewModel = ProductoViewModelFactory(
+            productoRepo,
+            categoriaRepo,
+            productoRemoteRepo
+        ).create(ProductoViewModel::class.java)
+
+        // ⭐ ViewModel Tickets / Reseñas
+        val ticketViewModel = TicketViewModelFactory(ticketRemoteRepo)
+            .create(TicketViewModel::class.java)
+
+        // ⭐ Render App
         setContent {
             AppRootScreen(
                 authViewModel = authViewModel,
-                productoViewModel = productoViewModel
+                productoViewModel = productoViewModel,
+                ticketViewModel = ticketViewModel
             )
         }
     }

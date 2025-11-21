@@ -5,134 +5,219 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.petcareconnect.data.model.Categoria
 import com.example.petcareconnect.data.repository.CategoriaRepository
+import com.example.petcareconnect.data.remote.CategoriaRemoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-// ---------------------------------------------------------------------------
-// CategoriaViewModel.kt
-// ---------------------------------------------------------------------------
-// Este ViewModel controla la lógica de negocio asociada a las categorías
-// de productos dentro del sistema PetCare Connect.
-// Gestiona la creación, actualización, eliminación y listado de categorías,
-// manteniendo sincronizada la interfaz con la base de datos Room en tiempo real.
-// ---------------------------------------------------------------------------
-
-
-// ---------------------- ESTADO DE INTERFAZ ----------------------
-// Representa los datos observables que la UI utilizará para renderizar
-// la lista de categorías y los mensajes de error o campos de entrada.
+// =====================================================================
+// UI STATE
+// =====================================================================
 data class CategoriaUiState(
-    val categorias: List<Categoria> = emptyList(), // Lista de categorías cargadas
-    val nombre: String = "",                      // Valor del campo de texto para agregar/editar
-    val errorMsg: String? = null                  // Mensaje de error si se deja el nombre vacío
+    val categorias: List<Categoria> = emptyList(),
+    val nombre: String = "",
+    val errorMsg: String? = null,
+    val successMsg: String? = null,
+    val rol: String = "CLIENTE",
+    val isLoading: Boolean = false
 )
 
 
-// ---------------------- VIEWMODEL PRINCIPAL ----------------------
-class CategoriaViewModel(private val repository: CategoriaRepository) : ViewModel() {
+// =====================================================================
+// VIEWMODEL (ROOM + MICROSERVICIO)
+// =====================================================================
+class CategoriaViewModel(
+    private val repository: CategoriaRepository,
+    private val remoteRepository: CategoriaRemoteRepository?,
+    private val userRoleProvider: (() -> String)? = null
+) : ViewModel() {
 
-    // Flujo de estado reactivo que emite los cambios del UI state.
-    // Compose volverá a dibujar automáticamente la pantalla cuando el estado cambie.
     private val _state = MutableStateFlow(CategoriaUiState())
     val state: StateFlow<CategoriaUiState> = _state
 
-    // Bloque inicial que carga las categorías al crear el ViewModel.
     init {
-        loadCategorias()
+        loadRolUsuario()
+        loadCategoriasLocal()
+        remoteRepository?.let { syncCategorias() }   // ← sincroniza al iniciar
     }
 
+    // ---------------------------------------------------------------
+    // ROLES
+    // ---------------------------------------------------------------
+    private fun loadRolUsuario() {
+        _state.value = _state.value.copy(
+            rol = userRoleProvider?.invoke() ?: "CLIENTE"
+        )
+    }
 
-    // ---------------------- CARGAR CATEGORÍAS ----------------------
-    // Recupera todas las categorías desde la base de datos local (Room)
-    // y actualiza el flujo de estado con la lista más reciente.
-    //
-    // ANIMACIÓN REACTIVA:
-    // Al actualizar el flujo, los componentes que usan `collectAsState()`
-    // (por ejemplo, LazyColumn en la UI) muestran los cambios de forma fluida
-    // sin necesidad de recargar manualmente.
-    private fun loadCategorias() {
+    private fun esAdmin() = _state.value.rol == "ADMIN"
+
+    // ---------------------------------------------------------------
+    // ROOM - Cargar categorías locales
+    // ---------------------------------------------------------------
+    private fun loadCategoriasLocal() {
         viewModelScope.launch {
-            repository.getAllCategorias().collect { categorias ->
-                _state.value = _state.value.copy(categorias = categorias)
+            repository.getAllCategorias().collect { lista ->
+                _state.value = _state.value.copy(categorias = lista)
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // API - Sincronizar desde microservicio
+    // ---------------------------------------------------------------
+    fun syncCategorias() {
+        val api = remoteRepository ?: return
+
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(isLoading = true)
+
+                val categoriasApi = api.getCategoriasRemotas()
+
+                repository.deleteAll()
+                categoriasApi.forEach { repository.insert(it) }
+
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    successMsg = "Categorías sincronizadas desde el servidor"
+                )
+
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    errorMsg = "Error al sincronizar: ${e.message}"
+                )
             }
         }
     }
 
 
-    // ---------------------- INSERTAR CATEGORÍA ----------------------
-    // Valida que el campo nombre no esté vacío, y luego inserta una nueva
-    // categoría en la base de datos.
-    //
-    // ANIMACIÓN REACTIVA:
-    // Al insertarse una nueva categoría, `getAllCategorias()` emite un nuevo valor,
-    // provocando que la lista en pantalla se actualice instantáneamente.
+    // ---------------------------------------------------------------
+    // CREAR CATEGORÍA
+    // ---------------------------------------------------------------
     fun insertCategoria() {
+        if (!esAdmin()) return setError("No tienes permisos para crear categorías.")
+
         val nombre = _state.value.nombre.trim()
-
-        // Validación del campo vacío
-        if (nombre.isEmpty()) {
-            _state.value = _state.value.copy(errorMsg = "Debes ingresar un nombre válido.")
-            return
-        }
-
-        // Inserción asincrónica en la base de datos
-        viewModelScope.launch {
-            repository.insert(Categoria(nombre = nombre))
-            // Reinicia el campo de texto y limpia mensajes de error
-            _state.value = _state.value.copy(nombre = "", errorMsg = null)
-        }
-    }
-
-
-    // ---------------------- ACTUALIZAR CATEGORÍA ----------------------
-    // Actualiza el nombre de una categoría existente.
-    //
-    // ANIMACIÓN REACTIVA:
-    // Al modificarse un registro, el flujo de Room detecta el cambio
-    // y Compose vuelve a renderizar la lista con la nueva información.
-    fun updateCategoria(id: Int, nuevoNombre: String) {
-        if (nuevoNombre.isBlank()) return
+        if (nombre.isBlank()) return setError("El nombre no puede estar vacío.")
 
         viewModelScope.launch {
-            repository.update(Categoria(idCategoria = id, nombre = nuevoNombre))
+            try {
+                val nuevaApi = remoteRepository?.crearCategoria(nombre)
+
+                if (nuevaApi != null) {
+                    repository.insert(nuevaApi)
+                } else {
+                    repository.insert(Categoria(nombre = nombre))
+                }
+
+                limpiarFormulario("Categoría agregada correctamente")
+
+            } catch (e: Exception) {
+                setError("Error al crear categoría: ${e.message}")
+            }
         }
     }
 
 
-    // ---------------------- ELIMINAR CATEGORÍA ----------------------
-    // Elimina una categoría de la base de datos según su identificador.
-    //
-    // ANIMACIÓN REACTIVA:
-    // La eliminación provoca una emisión inmediata en el flujo `getAllCategorias()`,
-    // actualizando la lista visible sin intervención manual.
-    fun deleteCategoria(id: Int) {
+    // ---------------------------------------------------------------
+    // ACTUALIZAR CATEGORÍA
+    // ---------------------------------------------------------------
+    fun updateCategoria(id: Long, nuevoNombre: String) {
+        if (!esAdmin()) return setError("No tienes permisos para editar.")
+
+        val nombre = nuevoNombre.trim()
+        if (nombre.isBlank()) return setError("El nombre no puede estar vacío.")
+
         viewModelScope.launch {
+            try {
+                val categoriaApi = remoteRepository?.actualizarCategoria(id, nombre)
+
+                repository.update(
+                    categoriaApi ?: Categoria(idCategoria = id, nombre = nombre)
+                )
+
+                setSuccess("Categoría actualizada correctamente")
+
+            } catch (e: Exception) {
+                setError("Error al actualizar categoría: ${e.message}")
+            }
+        }
+    }
+
+
+    // ---------------------------------------------------------------
+    // ELIMINAR CATEGORÍA
+    // ---------------------------------------------------------------
+    fun deleteCategoria(id: Long) {
+        if (!esAdmin()) return setError("No tienes permisos para eliminar.")
+
+        viewModelScope.launch {
+            try {
+                remoteRepository?.eliminarCategoria(id)
+            } catch (_: Exception) {}
+
             repository.deleteById(id)
+
+            setSuccess("Categoría eliminada")
         }
     }
 
 
-    // ---------------------- ACTUALIZAR CAMPO DE TEXTO ----------------------
-    // Mantiene sincronizado el valor del campo de texto en la UI
-    // con el estado interno del ViewModel.
+    // ---------------------------------------------------------------
+    // EVENTOS DE UI
+    // ---------------------------------------------------------------
     fun onNombreChange(value: String) {
         _state.value = _state.value.copy(nombre = value)
+    }
+
+    fun limpiarMensajes() {
+        _state.value = _state.value.copy(errorMsg = null, successMsg = null)
+    }
+
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+    private fun limpiarFormulario(msg: String) {
+        _state.value = _state.value.copy(
+            nombre = "",
+            successMsg = msg,
+            errorMsg = null
+        )
+    }
+
+    private fun setError(msg: String) {
+        _state.value = _state.value.copy(errorMsg = msg, successMsg = null)
+    }
+
+    private fun setSuccess(msg: String) {
+        _state.value = _state.value.copy(successMsg = msg, errorMsg = null)
     }
 }
 
 
-// ---------------------- FACTORY DE VIEWMODEL ----------------------
-// Permite la creación del ViewModel inyectando el repositorio correspondiente.
-// Esto facilita pruebas unitarias e integración con otros componentes de arquitectura.
+// =====================================================================
+// FACTORY
+// =====================================================================
 class CategoriaViewModelFactory(
-    private val repository: CategoriaRepository
+    private val repository: CategoriaRepository,
+    private val remoteRepository: CategoriaRemoteRepository?,
+    private val roleProvider: (() -> String)? = null
 ) : ViewModelProvider.Factory {
+
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
+
         if (modelClass.isAssignableFrom(CategoriaViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return CategoriaViewModel(repository) as T
+            return CategoriaViewModel(
+                repository = repository,
+                remoteRepository = remoteRepository,
+                userRoleProvider = roleProvider
+            ) as T
         }
+
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

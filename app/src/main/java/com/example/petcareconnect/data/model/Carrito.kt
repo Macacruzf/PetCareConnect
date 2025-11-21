@@ -13,7 +13,7 @@ data class Carrito(
     val idItem: Int = Random.nextInt(),   // esto evita que 2 productos se actualicen juntos
 
     // Identificador real del producto desde la BD
-    val idProducto: Int,
+    val idProducto: Long,
 
     val nombre: String,
     val precio: Double,

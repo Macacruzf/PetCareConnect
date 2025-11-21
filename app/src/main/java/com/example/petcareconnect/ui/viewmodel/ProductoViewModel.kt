@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.model.Categoria
 import com.example.petcareconnect.data.model.EstadoProducto
+import com.example.petcareconnect.data.remote.dto.ProductoDto
+import com.example.petcareconnect.data.remote.ProductoRemoteRepository
+import com.example.petcareconnect.data.remote.dto.CategoriaDto
+import com.example.petcareconnect.data.remote.dto.EstadoRequest
 import com.example.petcareconnect.data.repository.ProductoRepository
 import com.example.petcareconnect.data.repository.CategoriaRepository
 import kotlinx.coroutines.delay
@@ -23,7 +27,7 @@ data class ProductoUiState(
     val nombre: String = "",
     val precio: String = "",
     val stock: String = "",
-    val categoriaId: Int? = null,
+    val categoriaId: Long? = null,
 
     val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
 
@@ -34,7 +38,7 @@ data class ProductoUiState(
     val errorMsg: String? = null,
     val successMsg: String? = null,
 
-    val productoEnEdicionId: Int? = null
+    val productoEnEdicionId: Long? = null
 )
 
 // ----------------------------------------------------------
@@ -42,7 +46,8 @@ data class ProductoUiState(
 // ----------------------------------------------------------
 class ProductoViewModel(
     private val repository: ProductoRepository,
-    private val categoriaRepository: CategoriaRepository
+    private val categoriaRepository: CategoriaRepository,
+    private val remoteRepository: ProductoRemoteRepository?
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProductoUiState())
@@ -51,8 +56,11 @@ class ProductoViewModel(
     init {
         loadProductos()
         loadCategorias()
+        remoteRepository?.let { syncProductosDesdeApi() }
     }
 
+    // ------------------------------------------------------
+    // CARGA DE PRODUCTOS LOCALES
     // ------------------------------------------------------
     private fun loadProductos() {
         viewModelScope.launch {
@@ -62,13 +70,17 @@ class ProductoViewModel(
         }
     }
 
+    // ------------------------------------------------------
+    // CARGA DE CATEGORÍAS
+    // ------------------------------------------------------
     private fun loadCategorias() {
         viewModelScope.launch {
             categoriaRepository.getAllCategorias().collect { categorias ->
                 if (categorias.isEmpty()) {
-                    delay(500)
-                    val backup = categoriaRepository.getAllOnce()
-                    _state.value = _state.value.copy(categorias = backup)
+                    delay(300)
+                    _state.value = _state.value.copy(
+                        categorias = categoriaRepository.getAllOnce()
+                    )
                 } else {
                     _state.value = _state.value.copy(categorias = categorias)
                 }
@@ -76,15 +88,35 @@ class ProductoViewModel(
         }
     }
 
-    fun recargarCategoriasManualmente() {
+    // ------------------------------------------------------
+    // SINCRONIZACIÓN DESDE MICROSERVICIO
+    // ------------------------------------------------------
+    fun syncProductosDesdeApi() {
         viewModelScope.launch {
-            val categorias = categoriaRepository.getAllOnce()
-            _state.value = _state.value.copy(categorias = categorias)
+            try {
+                _state.value = _state.value.copy(isLoading = true)
+
+                val productosApi = remoteRepository!!.getAllProductosRemotos()
+
+                repository.deleteAll()
+                productosApi.forEach { repository.insert(it) }
+
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    successMsg = "Productos sincronizados desde servidor"
+                )
+
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    errorMsg = "Error al sincronizar: ${e.message}"
+                )
+            }
         }
     }
 
     // ------------------------------------------------------
-    // AGREGAR PRODUCTO
+    // INSERTAR PRODUCTO
     // ------------------------------------------------------
     fun insertProducto() {
         val nombre = _state.value.nombre.trim()
@@ -93,28 +125,45 @@ class ProductoViewModel(
         val categoriaId = _state.value.categoriaId
 
         if (nombre.isBlank()) return setError("El nombre es obligatorio.")
-        if (precio == null || precio <= 0) return setError("El precio es inválido.")
-        if (stock == null || stock < 0) return setError("El stock es inválido.")
-        if (categoriaId == null) return setError("Selecciona una categoría.")
+        if (precio == null || precio <= 0) return setError("Precio inválido.")
+        if (stock == null || stock < 0) return setError("Stock inválido.")
+        if (categoriaId == null) return setError("Selecciona categoría.")
 
         viewModelScope.launch {
-            repository.insert(
-                Producto(
+            try {
+                val productoApi = remoteRepository?.crearProductoRemoto(
                     nombre = nombre,
                     precio = precio,
                     stock = stock,
-                    categoriaId = categoriaId,
-                    estado = _state.value.estado,
-                    imagenResId = _state.value.imagenResId,
-                    imagenUri = _state.value.imagenUri
+                    categoriaId = categoriaId
                 )
-            )
-            limpiarFormulario("Producto agregado correctamente.")
+
+                if (productoApi != null) {
+                    repository.insert(productoApi)
+                } else {
+                    repository.insert(
+                        Producto(
+                            nombre = nombre,
+                            precio = precio,
+                            stock = stock,
+                            categoriaId = categoriaId,
+                            estado = _state.value.estado,
+                            imagenResId = _state.value.imagenResId,
+                            imagenUri = _state.value.imagenUri
+                        )
+                    )
+                }
+
+                limpiarFormulario("Producto agregado correctamente")
+
+            } catch (e: Exception) {
+                setError("Error al guardar en API: ${e.message}")
+            }
         }
     }
 
     // ------------------------------------------------------
-    // CARGAR DATOS PARA EDITAR
+    // CARGAR PRODUCTO PARA EDICIÓN
     // ------------------------------------------------------
     fun cargarProductoParaEdicion(producto: Producto) {
         _state.value = _state.value.copy(
@@ -124,8 +173,8 @@ class ProductoViewModel(
             stock = producto.stock.toString(),
             categoriaId = producto.categoriaId,
             estado = producto.estado,
-            imagenResId = producto.imagenResId,
-            imagenUri = producto.imagenUri
+            imagenUri = producto.imagenUri,
+            imagenResId = producto.imagenResId
         )
     }
 
@@ -133,146 +182,141 @@ class ProductoViewModel(
     // EDITAR PRODUCTO
     // ------------------------------------------------------
     fun editarProducto() {
-        val id = _state.value.productoEnEdicionId
-            ?: return setError("No se pudo identificar el producto.")
-
+        val id = _state.value.productoEnEdicionId ?: return setError("Producto no identificado.")
         val nombre = _state.value.nombre.trim()
         val precio = _state.value.precio.toDoubleOrNull()
         val stock = _state.value.stock.toIntOrNull()
         val categoriaId = _state.value.categoriaId
+        val estado = _state.value.estado
+        val imagenUri = _state.value.imagenUri
+        val imagenResId = _state.value.imagenResId
 
         if (nombre.isBlank()) return setError("El nombre es obligatorio.")
-        if (precio == null || precio <= 0) return setError("El precio es inválido.")
-        if (stock == null || stock < 0) return setError("El stock es inválido.")
-        if (categoriaId == null) return setError("Selecciona una categoría.")
+        if (precio == null || precio <= 0) return setError("Precio inválido.")
+        if (stock == null || stock < 0) return setError("Stock inválido.")
+        if (categoriaId == null) return setError("Selecciona categoría.")
 
         viewModelScope.launch {
-            val productoActual = _state.value.productos.find { it.idProducto == id }
-                ?: return@launch setError("Producto no encontrado.")
+            try {
+                val categoriaLocal = categoriaRepository.getById(categoriaId)
+                val categoriaDto = categoriaLocal?.let {
+                    CategoriaDto(idCategoria = it.idCategoria, nombre = it.nombre)
+                } ?: CategoriaDto(categoriaId, "")
 
-            repository.update(
-                productoActual.copy(
+                val dto = ProductoDto(
+                    idProducto = id,
                     nombre = nombre,
                     precio = precio,
                     stock = stock,
-                    categoriaId = categoriaId,
-                    estado = _state.value.estado,
-                    imagenResId = _state.value.imagenResId,
-                    imagenUri = _state.value.imagenUri
+                    estado = estado.name,
+                    categoria = categoriaDto,
+                    imagenUrl = imagenUri
                 )
-            )
 
-            limpiarFormulario("Producto actualizado correctamente.")
-        }
-    }
+                // Enviar a API
+                val actualizado = remoteRepository?.actualizarProductoRemoto(dto)
 
-    // ------------------------------------------------------
-    fun deleteProducto(idProducto: Int) {
-        viewModelScope.launch {
-            repository.deleteById(idProducto)
-            setSuccess("Producto eliminado correctamente.")
-        }
-    }
+                if (actualizado != null) {
+                    repository.update(actualizado)
+                } else {
+                    repository.update(
+                        Producto(
+                            idProducto = id,
+                            nombre = nombre,
+                            precio = precio,
+                            stock = stock,
+                            categoriaId = categoriaId,
+                            estado = estado,
+                            imagenResId = imagenResId,
+                            imagenUri = imagenUri
+                        )
+                    )
+                }
 
-    fun cambiarEstadoManual(idProducto: Int, nuevoEstado: EstadoProducto) {
-        viewModelScope.launch {
-            repository.updateEstado(idProducto, nuevoEstado)
-            setSuccess("Estado actualizado a ${nuevoEstado.name}.")
-        }
-    }
+                limpiarFormulario("Producto actualizado")
 
-    // ------------------------------------------------------
-    // STOCK
-    // ------------------------------------------------------
-    fun descontarStock(idProducto: Int, cantidad: Int) {
-        viewModelScope.launch {
-            val producto = state.value.productos.find { it.idProducto == idProducto }
-                ?: return@launch setError("Producto no encontrado.")
-
-            val nuevoStock = producto.stock - cantidad
-            if (nuevoStock < 0) return@launch setError("Stock insuficiente.")
-
-            repository.updateStock(idProducto, nuevoStock)
-
-            if (nuevoStock == 0)
-                repository.updateEstado(idProducto, EstadoProducto.SIN_STOCK)
-
-            setSuccess("Stock actualizado correctamente.")
-        }
-    }
-
-    fun registrarCompra(idProducto: Int, cantidad: Int) {
-        viewModelScope.launch {
-            val producto = state.value.productos.find { it.idProducto == idProducto }
-                ?: return@launch setError("Producto no encontrado.")
-
-            val nuevoStock = producto.stock + cantidad
-            repository.updateStock(idProducto, nuevoStock)
-
-            if (producto.estado == EstadoProducto.SIN_STOCK && nuevoStock > 0) {
-                repository.updateEstado(idProducto, EstadoProducto.DISPONIBLE)
+            } catch (e: Exception) {
+                setError("Error al actualizar: ${e.message}")
             }
+        }
+    }
 
-            setSuccess("Stock ingresado correctamente.")
+
+    // ------------------------------------------------------
+    // ELIMINAR PRODUCTO
+    // ------------------------------------------------------
+    fun deleteProducto(idProducto: Long) {
+        viewModelScope.launch {
+            try {
+                remoteRepository?.eliminarProductoRemoto(idProducto)
+            } catch (_: Exception) {}
+
+            repository.deleteById(idProducto)
+            setSuccess("Producto eliminado")
         }
     }
 
     // ------------------------------------------------------
-    // SETTERS
+    // CAMBIAR ESTADO DESDE ANDROID (DTO)
+    // ------------------------------------------------------
+    fun cambiarEstadoManual(idProducto: Long, nuevoEstado: EstadoProducto) {
+        viewModelScope.launch {
+            try {
+                val estadoReq = EstadoRequest(nuevoEstado.name)
+
+                remoteRepository?.cambiarEstadoRemoto(idProducto, estadoReq)
+
+                val actual = state.value.productos.firstOrNull { it.idProducto == idProducto }
+                    ?: return@launch setError("Producto no encontrado.")
+
+                val actualizado = actual.copy(estado = nuevoEstado)
+                repository.update(actualizado)
+
+                setSuccess("Estado actualizado correctamente")
+
+            } catch (e: Exception) {
+                setError("Error al cambiar estado: ${e.message}")
+            }
+        }
+    }
+
+    // ------------------------------------------------------
+    // ACTUALIZACIONES DEL FORMULARIO
     // ------------------------------------------------------
     fun onNombreChange(v: String) = update { copy(nombre = v) }
     fun onPrecioChange(v: String) = update { copy(precio = v) }
     fun onStockChange(v: String) = update { copy(stock = v) }
-    fun onCategoriaChange(v: Int) = update { copy(categoriaId = v) }
+    fun onCategoriaChange(v: Long) = update { copy(categoriaId = v) }
     fun onEstadoChange(v: EstadoProducto) = update { copy(estado = v) }
-
-    fun onImagenChange(v: Int?) = update { copy(imagenResId = v, imagenUri = null) }
+    fun onImagenChange(id: Int?) = update { copy(imagenResId = id, imagenUri = null) }
     fun onImagenUriChange(uri: String?) = update { copy(imagenUri = uri, imagenResId = null) }
 
-    private fun update(reducer: ProductoUiState.() -> ProductoUiState) {
-        _state.value = _state.value.reducer()
-    }
-
-    // ------------------------------------------------------
-    // LIMPIEZA DE FORMULARIOS
-    // ------------------------------------------------------
-    private fun limpiarFormulario(msg: String) {
-        _state.value = _state.value.copy(
-            successMsg = msg,
-            errorMsg = null,
-
-            nombre = "",
-            precio = "",
-            stock = "",
-            categoriaId = null,
-            estado = EstadoProducto.DISPONIBLE,
-
-            imagenResId = null,
-            imagenUri = null,
-
-            productoEnEdicionId = null
-        )
-    }
-
-    // ⭐ Nueva función solicitada
-    fun resetFormulario() {
-        _state.value = _state.value.copy(
-            nombre = "",
-            precio = "",
-            stock = "",
-            categoriaId = null,
-            estado = EstadoProducto.DISPONIBLE,
-            imagenResId = null,
-            imagenUri = null,
-            productoEnEdicionId = null,
-            errorMsg = null,
-            successMsg = null
-        )
+    private fun update(block: ProductoUiState.() -> ProductoUiState) {
+        _state.value = _state.value.block()
     }
 
     // ------------------------------------------------------
     // UTILIDADES
     // ------------------------------------------------------
+    private fun limpiarFormulario(msg: String) {
+        _state.value = _state.value.copy(
+            successMsg = msg,
+            errorMsg = null,
+            nombre = "",
+            precio = "",
+            stock = "",
+            categoriaId = null,
+            estado = EstadoProducto.DISPONIBLE,
+            imagenResId = null,
+            imagenUri = null,
+            productoEnEdicionId = null
+        )
+    }
+
+    fun limpiarMensajes() {
+        _state.value = _state.value.copy(errorMsg = null, successMsg = null)
+    }
+
     private fun setError(msg: String) {
         _state.value = _state.value.copy(errorMsg = msg, successMsg = null)
     }
@@ -280,24 +324,20 @@ class ProductoViewModel(
     private fun setSuccess(msg: String) {
         _state.value = _state.value.copy(successMsg = msg, errorMsg = null)
     }
-
-    fun limpiarMensajes() {
-        _state.value = _state.value.copy(errorMsg = null, successMsg = null)
-    }
 }
 
 // ----------------------------------------------------------
-// FACTORY
+// FACTORY DEL VIEWMODEL (CORRECTO)
 // ----------------------------------------------------------
 class ProductoViewModelFactory(
     private val repository: ProductoRepository,
-    private val categoriaRepository: CategoriaRepository
+    private val categoriaRepository: CategoriaRepository,
+    private val remoteRepository: ProductoRemoteRepository?
 ) : ViewModelProvider.Factory {
-
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProductoViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ProductoViewModel(repository, categoriaRepository) as T
+            return ProductoViewModel(repository, categoriaRepository, remoteRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

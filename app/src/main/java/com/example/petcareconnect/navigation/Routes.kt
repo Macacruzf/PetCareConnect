@@ -47,4 +47,6 @@ sealed class Route(val path: String) {
     // Pantalla de edición de usuario por administrador
     data object EditarUsuario : Route("editar_usuario")
 
+    data object EditarProducto : Route("editarProducto")
+
 }

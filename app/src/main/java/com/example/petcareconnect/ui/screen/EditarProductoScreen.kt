@@ -42,7 +42,7 @@ fun EditarProductoScreen(
     val state by productoViewModel.state.collectAsState()
     val context = LocalContext.current
 
-    // Cargar datos en VM al abrir pantalla
+    // Cargar datos al abrir
     LaunchedEffect(producto.idProducto) {
         productoViewModel.cargarProductoParaEdicion(producto)
     }
@@ -52,25 +52,25 @@ fun EditarProductoScreen(
     var showSheet by remember { mutableStateOf(false) }
 
     // Cámara
-    val photoUri = remember { mutableStateOf<Uri?>(null) }
+    val photoUriState = remember { mutableStateOf<Uri?>(null) }
 
     val cameraLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-            if (success && photoUri.value != null) {
-                productoViewModel.onImagenUriChange(photoUri.value.toString())
+            if (success && photoUriState.value != null) {
+                productoViewModel.onImagenUriChange(photoUriState.value.toString())
             }
         }
 
     val cameraPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                val file = File(context.cacheDir, "producto_${System.currentTimeMillis()}.jpg")
+                val file = File(context.cacheDir, "producto_edit_${System.currentTimeMillis()}.jpg")
                 val uri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.provider",
                     file
                 )
-                photoUri.value = uri
+                photoUriState.value = uri
                 cameraLauncher.launch(uri)
             } else {
                 Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
@@ -143,7 +143,7 @@ fun EditarProductoScreen(
             }
         }
 
-        // CONTENIDO PRINCIPAL
+        // CONTENIDO
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -157,10 +157,10 @@ fun EditarProductoScreen(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
-            // IMAGEN
+            // ===== IMAGEN =====
             Box(
                 modifier = Modifier
-                    .size(140.dp)
+                    .size(150.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFFE0E0E0))
                     .align(Alignment.CenterHorizontally)
@@ -175,11 +175,11 @@ fun EditarProductoScreen(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Text("Toca para agregar imagen")
+                    Text("Toca para cambiar imagen")
                 }
             }
 
-            // NOMBRE
+            // ===== NOMBRE =====
             OutlinedTextField(
                 value = state.nombre,
                 onValueChange = productoViewModel::onNombreChange,
@@ -187,45 +187,44 @@ fun EditarProductoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // PRECIO
+            // ===== PRECIO =====
             OutlinedTextField(
                 value = state.precio,
                 onValueChange = {
-                    if (it.all { ch -> ch.isDigit() || ch == '.' }) {
+                    if (it.all { ch -> ch.isDigit() || ch == '.' })
                         productoViewModel.onPrecioChange(it)
-                    }
                 },
                 label = { Text("Precio") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // STOCK
+            // ===== STOCK =====
             OutlinedTextField(
                 value = state.stock,
                 onValueChange = {
-                    if (it.all { ch -> ch.isDigit() }) {
+                    if (it.all { ch -> ch.isDigit() })
                         productoViewModel.onStockChange(it)
-                    }
                 },
                 label = { Text("Stock") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // CATEGORÍA (solo lectura)
+            // ===== CATEGORIA =====
             OutlinedTextField(
-                value = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }?.nombre
-                    ?: "",
+                value = state.categorias.firstOrNull {
+                    it.idCategoria == state.categoriaId
+                }?.nombre ?: "",
                 onValueChange = {},
                 label = { Text("Categoría") },
                 readOnly = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // ESTADO (solo lectura)
+            // ===== ESTADO =====
             OutlinedTextField(
-                value = state.estado.toString(),
+                value = state.estado.name,
                 onValueChange = {},
                 label = { Text("Estado") },
                 readOnly = true,
@@ -234,7 +233,6 @@ fun EditarProductoScreen(
 
             Spacer(Modifier.height(15.dp))
 
-            // GUARDAR
             Button(
                 onClick = {
                     productoViewModel.editarProducto()
