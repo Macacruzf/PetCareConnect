@@ -10,35 +10,47 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.petcareconnect.data.remote.dto.TicketResponse
 import com.example.petcareconnect.ui.viewmodel.TicketViewModel
 
 @Composable
 fun TicketScreen(
-    productoId: Long,          // ID del producto (Long)
-    idUsuario: Long,           // ID del usuario autenticado
-    vm: TicketViewModel        // ViewModel de reseñas
+    productoId: Long,
+    idUsuario: Long,
+    vm: TicketViewModel
 ) {
     val state by vm.state.collectAsState()
 
-    // Cargar reseñas del producto al entrar
+    // ⭐ Reset al cambiar de producto
     LaunchedEffect(productoId) {
+        vm.resetState()
         vm.loadTickets(productoId)
     }
 
-    Column(Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
 
         Text(
-            "Comentarios y calificaciones",
-            style = MaterialTheme.typography.titleLarge
+            "Comentarios y Calificaciones",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
-        Spacer(Modifier.height(8.dp))
 
-        // ---------------- LISTA DE RESEÑAS ----------------
+        Spacer(Modifier.height(12.dp))
+
+        // ===============================
+        // LISTA DE RESEÑAS
+        // ===============================
         LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(state.tickets) { ticket ->
                 TicketCard(ticket)
@@ -47,19 +59,25 @@ fun TicketScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // ---------------- FORMULARIO ----------------
-        Text("Tu opinión", style = MaterialTheme.typography.titleMedium)
+        Text("Tu Opinión", style = MaterialTheme.typography.titleMedium)
 
+        // ===============================
+        // COMENTARIO PRINCIPAL DEL CLIENTE
+        // ===============================
         OutlinedTextField(
             value = state.comentario,
             onValueChange = vm::onComentarioChange,
-            label = { Text("Escribe tu comentario...") },
+            label = { Text("Escribe tu comentario…") },
             modifier = Modifier.fillMaxWidth()
         )
 
-        // ---------------- ESTRELLAS ----------------
+        Spacer(Modifier.height(10.dp))
+
+        // ===============================
+        // SELECCIÓN DE ESTRELLAS
+        // ===============================
         Row(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             (1..5).forEach { estrella ->
@@ -67,48 +85,101 @@ fun TicketScreen(
                     Icon(
                         Icons.Filled.Star,
                         contentDescription = null,
-                        tint = if (estrella <= state.calificacion) Color.Yellow else Color.Gray
+                        tint = if (estrella <= state.calificacion)
+                            Color(0xFFFFD700)
+                        else Color.LightGray
                     )
                 }
             }
         }
 
-        // ---------------- BOTÓN ENVIAR ----------------
+        Spacer(Modifier.height(8.dp))
+
+        // ===============================
+        // BOTÓN ENVIAR RESEÑA
+        // ===============================
         Button(
             onClick = { vm.enviarTicket(productoId, idUsuario) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Enviar")
+            Text("Enviar reseña")
         }
 
-        // ---------------- MENSAJES ----------------
+        // ===============================
+        // MENSAJES
+        // ===============================
         state.successMsg?.let {
-            Text(it, color = Color.Green)
+            Text(it, color = Color(0xFF4CAF50), modifier = Modifier.padding(top = 8.dp))
         }
+
         state.errorMsg?.let {
-            Text(it, color = Color.Red)
+            Text(it, color = Color.Red, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
 
 @Composable
 fun TicketCard(ticket: TicketResponse) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(8.dp)) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(Modifier.padding(12.dp)) {
 
             Text(
-                "Usuario ID: ${ticket.idUsuario}",
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                "Usuario #${ticket.idUsuario}",
+                fontWeight = FontWeight.Bold
             )
 
-            // estrellas
+            Spacer(Modifier.height(4.dp))
+
+            // ⭐ Estrellas
             Row {
                 repeat(ticket.clasificacion) {
-                    Icon(Icons.Filled.Star, null, tint = Color.Yellow)
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = "Estrella",
+                        tint = Color(0xFFFFD700)
+                    )
                 }
             }
 
+            Spacer(Modifier.height(6.dp))
+
             Text(ticket.comentario)
+
+            // ===============================
+            // 🌟 RESPUESTA DEL ADMIN (SOPORTE)
+            // ===============================
+            val respuestas = ticket.comentarios.filter { it.tipoMensaje == "SOPORTE" }
+
+            if (respuestas.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+
+                respuestas.forEach { resp ->
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(Color(0xFFE7F1FF))
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+
+                            Text(
+                                "Respuesta del administrador",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1A73E8)
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(resp.mensaje)
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
         }
     }
 }

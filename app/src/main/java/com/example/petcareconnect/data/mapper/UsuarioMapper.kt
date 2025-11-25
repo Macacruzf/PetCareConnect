@@ -10,6 +10,7 @@ fun UsuarioRemote.toLocalUsuario(): Usuario {
         telefono = telefono ?: "",
         password = "", // no se guarda
         rol = rol,
+        estado = estado,
         fotoUri = null
     )
 }

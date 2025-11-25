@@ -9,9 +9,9 @@ object ApiModule {
 
     private const val IP = "10.0.2.2"
 
-    private const val PRODUCTO_URL = "http://$IP:8086/producto"
-    private const val TICKET_URL = "http://$IP:8087/ticket"
-    private const val USUARIO_URL = "http://$IP:8081/usuario/"
+    private const val PRODUCTO_URL = "http://$IP:8086/"
+    private const val TICKET_URL = "http://$IP:8087/api/"
+    private const val USUARIO_URL = "http://$IP:8081/"
 
     val productoApi: ProductoApi by lazy {
         RetrofitClient.getClient(PRODUCTO_URL)

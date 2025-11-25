@@ -6,13 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.model.Categoria
 import com.example.petcareconnect.data.model.EstadoProducto
-import com.example.petcareconnect.data.remote.dto.ProductoDto
 import com.example.petcareconnect.data.remote.ProductoRemoteRepository
-import com.example.petcareconnect.data.remote.dto.CategoriaDto
+import com.example.petcareconnect.data.remote.dto.CategoriaSimpleDto
 import com.example.petcareconnect.data.remote.dto.EstadoRequest
-import com.example.petcareconnect.data.repository.ProductoRepository
-import com.example.petcareconnect.data.repository.CategoriaRepository
-import kotlinx.coroutines.delay
+import com.example.petcareconnect.data.remote.dto.ProductoUpdateRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -24,13 +21,12 @@ data class ProductoUiState(
     val productos: List<Producto> = emptyList(),
     val categorias: List<Categoria> = emptyList(),
 
+    // formulario
     val nombre: String = "",
     val precio: String = "",
     val stock: String = "",
     val categoriaId: Long? = null,
-
     val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
-
     val imagenResId: Int? = null,
     val imagenUri: String? = null,
 
@@ -42,12 +38,10 @@ data class ProductoUiState(
 )
 
 // ----------------------------------------------------------
-// VIEWMODEL
+// VIEWMODEL → SOLO BACKEND
 // ----------------------------------------------------------
 class ProductoViewModel(
-    private val repository: ProductoRepository,
-    private val categoriaRepository: CategoriaRepository,
-    private val remoteRepository: ProductoRemoteRepository?
+    private val remoteRepository: ProductoRemoteRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProductoUiState())
@@ -56,114 +50,80 @@ class ProductoViewModel(
     init {
         loadProductos()
         loadCategorias()
-        remoteRepository?.let { syncProductosDesdeApi() }
     }
 
     // ------------------------------------------------------
-    // CARGA DE PRODUCTOS LOCALES
+    // CARGAR PRODUCTOS DESDE BACKEND
     // ------------------------------------------------------
     private fun loadProductos() {
-        viewModelScope.launch {
-            repository.getAllProductos().collect { productos ->
-                _state.value = _state.value.copy(productos = productos)
-            }
-        }
-    }
-
-    // ------------------------------------------------------
-    // CARGA DE CATEGORÍAS
-    // ------------------------------------------------------
-    private fun loadCategorias() {
-        viewModelScope.launch {
-            categoriaRepository.getAllCategorias().collect { categorias ->
-                if (categorias.isEmpty()) {
-                    delay(300)
-                    _state.value = _state.value.copy(
-                        categorias = categoriaRepository.getAllOnce()
-                    )
-                } else {
-                    _state.value = _state.value.copy(categorias = categorias)
-                }
-            }
-        }
-    }
-
-    // ------------------------------------------------------
-    // SINCRONIZACIÓN DESDE MICROSERVICIO
-    // ------------------------------------------------------
-    fun syncProductosDesdeApi() {
         viewModelScope.launch {
             try {
                 _state.value = _state.value.copy(isLoading = true)
 
-                val productosApi = remoteRepository!!.getAllProductosRemotos()
-
-                repository.deleteAll()
-                productosApi.forEach { repository.insert(it) }
-
+                val productos = remoteRepository.getAllProductosRemotos()
                 _state.value = _state.value.copy(
-                    isLoading = false,
-                    successMsg = "Productos sincronizados desde servidor"
+                    productos = productos,
+                    isLoading = false
                 )
 
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    errorMsg = "Error al sincronizar: ${e.message}"
+                    errorMsg = "Error cargando productos: ${e.message}"
                 )
             }
         }
+    }
+
+    // ------------------------------------------------------
+    // CATEGORÍAS (MOMENTÁNEO)
+    // ------------------------------------------------------
+    private fun loadCategorias() {
+        _state.value = _state.value.copy(
+            categorias = listOf(
+                Categoria(1, "Alimentos"),
+                Categoria(2, "Accesorios"),
+                Categoria(3, "Farmacia"),
+                Categoria(4, "Juguetes")
+            )
+        )
     }
 
     // ------------------------------------------------------
     // INSERTAR PRODUCTO
     // ------------------------------------------------------
     fun insertProducto() {
-        val nombre = _state.value.nombre.trim()
-        val precio = _state.value.precio.toDoubleOrNull()
-        val stock = _state.value.stock.toIntOrNull()
-        val categoriaId = _state.value.categoriaId
+        val nombre = state.value.nombre.trim()
+        val precio = state.value.precio.toDoubleOrNull()
+        val stock = state.value.stock.toIntOrNull()
+        val categoriaId = state.value.categoriaId
 
         if (nombre.isBlank()) return setError("El nombre es obligatorio.")
-        if (precio == null || precio <= 0) return setError("Precio inválido.")
-        if (stock == null || stock < 0) return setError("Stock inválido.")
-        if (categoriaId == null) return setError("Selecciona categoría.")
+        if (precio == null) return setError("Precio inválido.")
+        if (stock == null) return setError("Stock inválido.")
+        if (categoriaId == null) return setError("Selecciona una categoría.")
 
         viewModelScope.launch {
             try {
-                val productoApi = remoteRepository?.crearProductoRemoto(
+                remoteRepository.crearProductoRemoto(
                     nombre = nombre,
                     precio = precio,
                     stock = stock,
                     categoriaId = categoriaId
                 )
 
-                if (productoApi != null) {
-                    repository.insert(productoApi)
-                } else {
-                    repository.insert(
-                        Producto(
-                            nombre = nombre,
-                            precio = precio,
-                            stock = stock,
-                            categoriaId = categoriaId,
-                            estado = _state.value.estado,
-                            imagenResId = _state.value.imagenResId,
-                            imagenUri = _state.value.imagenUri
-                        )
-                    )
-                }
-
-                limpiarFormulario("Producto agregado correctamente")
+                setSuccess("Producto creado correctamente")
+                loadProductos()
+                limpiarFormulario()
 
             } catch (e: Exception) {
-                setError("Error al guardar en API: ${e.message}")
+                setError("Error al crear producto: ${e.message}")
             }
         }
     }
 
     // ------------------------------------------------------
-    // CARGAR PRODUCTO PARA EDICIÓN
+    // CARGAR PRODUCTO PARA EDITAR
     // ------------------------------------------------------
     fun cargarProductoParaEdicion(producto: Producto) {
         _state.value = _state.value.copy(
@@ -182,58 +142,35 @@ class ProductoViewModel(
     // EDITAR PRODUCTO
     // ------------------------------------------------------
     fun editarProducto() {
-        val id = _state.value.productoEnEdicionId ?: return setError("Producto no identificado.")
-        val nombre = _state.value.nombre.trim()
-        val precio = _state.value.precio.toDoubleOrNull()
-        val stock = _state.value.stock.toIntOrNull()
-        val categoriaId = _state.value.categoriaId
-        val estado = _state.value.estado
-        val imagenUri = _state.value.imagenUri
-        val imagenResId = _state.value.imagenResId
+        val id = state.value.productoEnEdicionId
+            ?: return setError("Producto no identificado")
 
-        if (nombre.isBlank()) return setError("El nombre es obligatorio.")
-        if (precio == null || precio <= 0) return setError("Precio inválido.")
-        if (stock == null || stock < 0) return setError("Stock inválido.")
-        if (categoriaId == null) return setError("Selecciona categoría.")
+        val nombre = state.value.nombre.trim()
+        val precio = state.value.precio.toDoubleOrNull()
+        val stock = state.value.stock.toIntOrNull()
+        val categoriaId = state.value.categoriaId
+        val estado = state.value.estado
+
+        if (nombre.isBlank()) return setError("Nombre obligatorio")
+        if (precio == null) return setError("Precio inválido")
+        if (stock == null) return setError("Stock inválido")
+        if (categoriaId == null) return setError("Selecciona categoría")
+
+        val request = ProductoUpdateRequest(
+            nombre = nombre,
+            precio = precio,
+            stock = stock,
+            estado = estado.name,
+            categoria = CategoriaSimpleDto(categoriaId, "")
+        )
 
         viewModelScope.launch {
             try {
-                val categoriaLocal = categoriaRepository.getById(categoriaId)
-                val categoriaDto = categoriaLocal?.let {
-                    CategoriaDto(idCategoria = it.idCategoria, nombre = it.nombre)
-                } ?: CategoriaDto(categoriaId, "")
+                remoteRepository.actualizarProductoRemoto(id, request)
 
-                val dto = ProductoDto(
-                    idProducto = id,
-                    nombre = nombre,
-                    precio = precio,
-                    stock = stock,
-                    estado = estado.name,
-                    categoria = categoriaDto,
-                    imagenUrl = imagenUri
-                )
-
-                // Enviar a API
-                val actualizado = remoteRepository?.actualizarProductoRemoto(dto)
-
-                if (actualizado != null) {
-                    repository.update(actualizado)
-                } else {
-                    repository.update(
-                        Producto(
-                            idProducto = id,
-                            nombre = nombre,
-                            precio = precio,
-                            stock = stock,
-                            categoriaId = categoriaId,
-                            estado = estado,
-                            imagenResId = imagenResId,
-                            imagenUri = imagenUri
-                        )
-                    )
-                }
-
-                limpiarFormulario("Producto actualizado")
+                setSuccess("Producto actualizado")
+                loadProductos()       // ← recarga UI cliente + admin
+                limpiarFormulario()
 
             } catch (e: Exception) {
                 setError("Error al actualizar: ${e.message}")
@@ -241,38 +178,35 @@ class ProductoViewModel(
         }
     }
 
-
     // ------------------------------------------------------
     // ELIMINAR PRODUCTO
     // ------------------------------------------------------
-    fun deleteProducto(idProducto: Long) {
+    fun deleteProducto(id: Long) {
         viewModelScope.launch {
             try {
-                remoteRepository?.eliminarProductoRemoto(idProducto)
-            } catch (_: Exception) {}
+                remoteRepository.eliminarProductoRemoto(id)
+                setSuccess("Producto eliminado")
+                loadProductos()
 
-            repository.deleteById(idProducto)
-            setSuccess("Producto eliminado")
+            } catch (e: Exception) {
+                setError("Error al eliminar: ${e.message}")
+            }
         }
     }
 
     // ------------------------------------------------------
-    // CAMBIAR ESTADO DESDE ANDROID (DTO)
+    // CAMBIAR ESTADO
     // ------------------------------------------------------
     fun cambiarEstadoManual(idProducto: Long, nuevoEstado: EstadoProducto) {
         viewModelScope.launch {
             try {
-                val estadoReq = EstadoRequest(nuevoEstado.name)
+                remoteRepository.cambiarEstadoRemoto(
+                    idProducto,
+                    EstadoRequest(nuevoEstado.name)
+                )
 
-                remoteRepository?.cambiarEstadoRemoto(idProducto, estadoReq)
-
-                val actual = state.value.productos.firstOrNull { it.idProducto == idProducto }
-                    ?: return@launch setError("Producto no encontrado.")
-
-                val actualizado = actual.copy(estado = nuevoEstado)
-                repository.update(actualizado)
-
-                setSuccess("Estado actualizado correctamente")
+                setSuccess("Estado actualizado")
+                loadProductos()   // ← ACTUALIZA TODO EN VIVO
 
             } catch (e: Exception) {
                 setError("Error al cambiar estado: ${e.message}")
@@ -281,7 +215,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // ACTUALIZACIONES DEL FORMULARIO
+    // FORMULARIO
     // ------------------------------------------------------
     fun onNombreChange(v: String) = update { copy(nombre = v) }
     fun onPrecioChange(v: String) = update { copy(precio = v) }
@@ -295,26 +229,17 @@ class ProductoViewModel(
         _state.value = _state.value.block()
     }
 
-    // ------------------------------------------------------
-    // UTILIDADES
-    // ------------------------------------------------------
-    private fun limpiarFormulario(msg: String) {
+    private fun limpiarFormulario() {
         _state.value = _state.value.copy(
-            successMsg = msg,
-            errorMsg = null,
             nombre = "",
             precio = "",
             stock = "",
             categoriaId = null,
             estado = EstadoProducto.DISPONIBLE,
-            imagenResId = null,
             imagenUri = null,
+            imagenResId = null,
             productoEnEdicionId = null
         )
-    }
-
-    fun limpiarMensajes() {
-        _state.value = _state.value.copy(errorMsg = null, successMsg = null)
     }
 
     private fun setError(msg: String) {
@@ -324,20 +249,25 @@ class ProductoViewModel(
     private fun setSuccess(msg: String) {
         _state.value = _state.value.copy(successMsg = msg, errorMsg = null)
     }
+
+    fun limpiarMensajes() {
+        _state.value = _state.value.copy(
+            successMsg = null,
+            errorMsg = null
+        )
+    }
 }
 
 // ----------------------------------------------------------
-// FACTORY DEL VIEWMODEL (CORRECTO)
+// FACTORY
 // ----------------------------------------------------------
 class ProductoViewModelFactory(
-    private val repository: ProductoRepository,
-    private val categoriaRepository: CategoriaRepository,
-    private val remoteRepository: ProductoRemoteRepository?
+    private val remoteRepository: ProductoRemoteRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProductoViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ProductoViewModel(repository, categoriaRepository, remoteRepository) as T
+            return ProductoViewModel(remoteRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

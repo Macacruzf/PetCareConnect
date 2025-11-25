@@ -13,50 +13,61 @@ class UsuarioRepository(private val usuarioDao: UsuarioDao) {
     private val api = ApiModule.usuarioApi
 
     // -------------------------------------------------------------------
-    // LOGIN (Microservicio Usuario)
+    // LOGIN (Microservicio Usuario) — sin token
     // -------------------------------------------------------------------
     suspend fun login(email: String, pass: String): Usuario? {
+
         val response = api.login(LoginRequest(email, pass))
 
-        UserSession.token = response.token
-        UserSession.rol = response.usuario.rol
-        UserSession.usuarioId = response.usuario.idUsuario.toInt()
+        val remoteUsuario = response.usuario ?: return null
 
-        val local = response.usuario.toLocalUsuario()
+        // Guardar en sesión
+        UserSession.usuarioId = remoteUsuario.idUsuario
+        UserSession.rol = remoteUsuario.rol
+        UserSession.estado = remoteUsuario.estado
+
+        val local = remoteUsuario.toLocalUsuario()
         usuarioDao.insert(local)
 
         return local
     }
 
     // -------------------------------------------------------------------
-    // REGISTRO (Microservicio Usuario)
+    // REGISTRO (Microservicio Usuario) — sin token
     // -------------------------------------------------------------------
-    suspend fun register(name: String, email: String, phone: String, pass: String): Usuario? {
+    suspend fun register(
+        name: String,
+        email: String,
+        phone: String,
+        pass: String
+    ): Usuario? {
+
         val req = RegisterRequest(
             nombreUsuario = name,
             email = email,
             telefono = phone,
-            password = pass
+            password = pass,
+            rol = "CLIENTE"
         )
 
-        val response = api.register(req)
+        val remoteUser = api.register(req)
 
-        // ✔ guarda token inmediatamente después de registrarse
-        UserSession.token = response.token
-        UserSession.rol = response.usuario.rol
-        UserSession.usuarioId = response.usuario.idUsuario.toInt()
+        // Guardar en sesión
+        UserSession.usuarioId = remoteUser.idUsuario
+        UserSession.rol = remoteUser.rol
+        UserSession.estado = remoteUser.estado
 
-        val local = response.usuario.toLocalUsuario()
+        val local = remoteUser.toLocalUsuario()
         usuarioDao.insert(local)
 
         return local
     }
 
     // -------------------------------------------------------------------
-    // LISTAR USUARIOS (Remoto + almacenamiento en Room)
+    // LISTAR USUARIOS (ADMIN)
     // -------------------------------------------------------------------
-    suspend fun syncUsuariosRemotos() {
-        val lista = api.listarUsuarios()
+    suspend fun syncUsuariosRemotos(adminId: Int) {
+        val lista = api.listarUsuarios(adminId)
         lista.forEach { remote ->
             usuarioDao.insert(remote.toLocalUsuario())
         }
@@ -67,25 +78,34 @@ class UsuarioRepository(private val usuarioDao: UsuarioDao) {
     }
 
     // -------------------------------------------------------------------
-    // OBTENER USUARIO POR ID (Remoto)
+    // ACTUALIZAR USUARIO REMOTO (ADMIN)
     // -------------------------------------------------------------------
-    suspend fun getUsuarioRemoto(id: Long): Usuario? {
-        val remote = api.getUsuario(id)
-        val local = remote.toLocalUsuario()
-        usuarioDao.insert(local)
+    suspend fun updateUsuarioRemoto(usuario: Usuario): Usuario? {
+
+        val body = UsuarioRemote(
+            idUsuario = usuario.idUsuario,
+            nombreUsuario = usuario.nombreUsuario,
+            email = usuario.email,
+            telefono = usuario.telefono,
+            password = usuario.password,
+            rol = usuario.rol,
+            estado = usuario.estado
+        )
+
+        val actualizado = api.updatePerfil(usuario.idUsuario, body)
+
+        val local = actualizado.toLocalUsuario()
+        usuarioDao.update(local)
+
         return local
     }
 
     // -------------------------------------------------------------------
-    // CRUD LOCAL (Room)
+    // CRUD LOCAL
     // -------------------------------------------------------------------
     suspend fun insert(usuario: Usuario) = usuarioDao.insert(usuario)
-
     suspend fun update(usuario: Usuario) = usuarioDao.update(usuario)
-
     suspend fun delete(usuario: Usuario) = usuarioDao.delete(usuario)
-
     suspend fun deleteById(id: Int) = usuarioDao.deleteById(id)
-
     suspend fun getByEmail(email: String) = usuarioDao.getByEmail(email)
 }

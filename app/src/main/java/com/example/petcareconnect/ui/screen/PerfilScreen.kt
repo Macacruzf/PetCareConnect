@@ -20,34 +20,36 @@ fun PerfilScreen(
         return
     }
 
-    // --- SOLO CAMPOS QUE EL CLIENTE PUEDE EDITAR ---
     var email by remember { mutableStateOf(usuario.email) }
-    var telefono by remember { mutableStateOf(usuario.telefono ?: "") }
+    var telefono by remember { mutableStateOf(usuario.telefono) }
     var passNueva by remember { mutableStateOf("") }
+
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
 
         Text(
             "Mi Perfil",
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineSmall
         )
 
-        // 🔒 Nombre bloqueado
+        // ---------- Nombre bloqueado ----------
         OutlinedTextField(
             value = usuario.nombreUsuario,
             onValueChange = {},
-            label = { Text("Nombre") },
+            label = { Text("Nombre (no editable)") },
             modifier = Modifier.fillMaxWidth(),
             readOnly = true,
             enabled = false
         )
 
-        // ✔ Email editable
+        // ---------- Email editable ----------
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -55,7 +57,7 @@ fun PerfilScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // ✔ Teléfono editable
+        // ---------- Teléfono editable ----------
         OutlinedTextField(
             value = telefono,
             onValueChange = { telefono = it },
@@ -63,7 +65,7 @@ fun PerfilScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // ✔ Contraseña editable opcional
+        // ---------- Contraseña nueva (opcional) ----------
         OutlinedTextField(
             value = passNueva,
             onValueChange = { passNueva = it },
@@ -72,21 +74,40 @@ fun PerfilScreen(
             visualTransformation = PasswordVisualTransformation()
         )
 
-        Spacer(Modifier.height(16.dp))
+        errorMsg?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         Button(
             onClick = {
+                isSaving = true
+
                 authViewModel.updateUser(
-                    nombre = null, // Cliente NO puede cambiar su nombre
                     email = email,
                     telefono = telefono,
-                    pass = if (passNueva.isBlank()) null else passNueva
-                )
-                onVolver()
+                    password = if (passNueva.isBlank()) null else passNueva
+                ) { error ->
+                    isSaving = false
+                    if (error != null) {
+                        errorMsg = error
+                    } else {
+                        onVolver()
+                    }
+                }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isSaving
         ) {
-            Text("Guardar cambios")
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Guardar cambios")
+            }
         }
 
         OutlinedButton(

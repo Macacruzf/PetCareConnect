@@ -1,6 +1,6 @@
 package com.example.petcareconnect.data.remote.dto
 
-data class CategoriaDto(
+data class CategoriaSimpleDto(
     val idCategoria: Long,
     val nombre: String
 )

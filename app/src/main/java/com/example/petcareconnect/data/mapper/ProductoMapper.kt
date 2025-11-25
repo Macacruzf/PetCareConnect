@@ -7,13 +7,19 @@ import com.example.petcareconnect.utils.getDrawableProducto
 
 fun ProductoDto.toLocal(): Producto {
     return Producto(
-        idProducto = idProducto.toLong(),
+        idProducto = idProducto
+            ?: throw IllegalStateException("El backend devolvió idProducto = null"),
+
         nombre = nombre,
         precio = precio,
         stock = stock,
-        categoriaId = categoria.idCategoria.toLong(),
-        estado = EstadoProducto.valueOf(estado),
-        imagenResId = getDrawableProducto(nombre),
-        imagenUri = imagenUrl
+        categoriaId = categoria.idCategoria,
+        estado = EstadoProducto.valueOf(estado.uppercase()),
+
+        // ✔ Si backend devuelve imagenUrl → usarla
+        imagenUri = imagenUrl,
+
+        // ✔ Si backend NO trae imagen → usar drawable por defecto
+        imagenResId = if (imagenUrl == null) getDrawableProducto(nombre) else null
     )
 }

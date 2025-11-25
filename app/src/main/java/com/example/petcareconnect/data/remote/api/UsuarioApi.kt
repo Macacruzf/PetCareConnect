@@ -5,31 +5,70 @@ import retrofit2.http.*
 
 interface UsuarioApi {
 
-    // LOGIN
-    @POST("login")
-    suspend fun login(@Body body: LoginRequest): LoginResponse
+    // --------------------------------------------------------
+    // 🔐 LOGIN
+    // --------------------------------------------------------
+    @POST("usuario/login")
+    suspend fun login(
+        @Body body: LoginRequest
+    ): LoginResponse
 
-    // REGISTRO
-    @POST("register")
-    suspend fun register(@Body body: RegisterRequest): Any
+    // --------------------------------------------------------
+    // 🧾 REGISTRO
+    // --------------------------------------------------------
+    @POST("usuario/register")
+    suspend fun register(
+        @Body body: RegisterRequest
+    ): UsuarioRemote
 
-    // OBTENER PERFIL
-    @GET("perfil/{id}")
-    suspend fun getPerfil(@Path("id") id: Int): UsuarioRemote
+    // --------------------------------------------------------
+    // 👤 PERFIL
+    // --------------------------------------------------------
+    @GET("usuario/perfil/{id}")
+    suspend fun getPerfil(
+        @Path("id") id: Int
+    ): UsuarioRemote
 
-    // VALIDAR CREDENCIALES (para otros MS)
-    @POST("validar-credenciales")
-    suspend fun validarCredenciales(@Body body: LoginRequest): ValidacionResponse
+    @PUT("usuario/perfil/{id}")
+    suspend fun updatePerfil(
+        @Path("id") id: Int,
+        @Body body: UsuarioRemote
+    ): UsuarioRemote
 
-    // ROL DEL USUARIO
-    @GET("{id}/rol")
-    suspend fun getRol(@Path("id") id: Int): Map<String, String>
+    // --------------------------------------------------------
+    // 🔒 VALIDAR CREDENCIALES
+    // --------------------------------------------------------
+    @POST("usuario/validar-credenciales")
+    suspend fun validarCredenciales(
+        @Body body: LoginRequest
+    ): ValidacionResponse
 
-    // ESTADO DEL USUARIO
-    @GET("{id}/estado")
-    suspend fun getEstado(@Path("id") id: Int): Map<String, String>
+    // --------------------------------------------------------
+    // 🛡️ ROLES Y ESTADO
+    // --------------------------------------------------------
+    @GET("usuario/{id}/rol")
+    suspend fun getRol(
+        @Path("id") id: Int
+    ): Map<String, String>
 
-    // LISTAR USUARIOS (requiere pasar idAdmin real)
-    @GET("listar/{idAdmin}")
-    suspend fun listarUsuarios(@Path("idAdmin") idAdmin: Int): List<UsuarioRemote>
+    @GET("usuario/{id}/estado")
+    suspend fun getEstado(
+        @Path("id") id: Int
+    ): Map<String, String>
+
+    // --------------------------------------------------------
+    // 📋 LISTAR USUARIOS (solo admin)
+    // --------------------------------------------------------
+    @GET("usuario/listar/{idAdmin}")
+    suspend fun listarUsuarios(
+        @Path("idAdmin") idAdmin: Int
+    ): List<UsuarioRemote>
+
+    // --------------------------------------------------------
+    // ❌ ELIMINAR USUARIO
+    // --------------------------------------------------------
+    @DELETE("usuario/{id}")
+    suspend fun deleteUser(
+        @Path("id") id: Int
+    )
 }

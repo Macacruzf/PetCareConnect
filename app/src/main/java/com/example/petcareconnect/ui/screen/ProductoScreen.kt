@@ -45,7 +45,8 @@ import java.io.File
 fun ProductoScreen(
     rol: String? = null,
     productoViewModel: ProductoViewModel,
-    onAgregarAlCarrito: (Producto) -> Unit = {}
+    onAgregarAlCarrito: (Producto) -> Unit = {},
+    onEditarProducto: (Producto) -> Unit = {}
 ) {
 
     val vm = productoViewModel
@@ -54,6 +55,9 @@ fun ProductoScreen(
     var showDialogAgregar by remember { mutableStateOf(false) }
     var categoriaSeleccionada by remember { mutableStateOf("Todas") }
     var expandedFiltro by remember { mutableStateOf(false) }
+
+    // ⭐ NUEVO → Guardar el producto clickeado
+    var productoSeleccionado by remember { mutableStateOf<Producto?>(null) }
 
     val isAdmin = rol == "ADMIN"
     val isCliente = rol == "CLIENTE" || rol == "INVITADO"
@@ -74,7 +78,8 @@ fun ProductoScreen(
     val productosFiltrados = remember(state.productos, categoriaSeleccionada) {
         if (categoriaSeleccionada == "Todas") state.productos
         else state.productos.filter {
-            val catNombre = state.categorias.firstOrNull { c -> c.idCategoria == it.categoriaId }?.nombre
+            val catNombre =
+                state.categorias.firstOrNull { c -> c.idCategoria == it.categoriaId }?.nombre
             catNombre == categoriaSeleccionada
         }
     }
@@ -118,8 +123,12 @@ fun ProductoScreen(
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Filtrar por categoría") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFiltro)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
                 )
 
                 ExposedDropdownMenu(
@@ -159,13 +168,13 @@ fun ProductoScreen(
                             isAdmin = isAdmin,
                             isCliente = isCliente,
 
+                            // ⭐ CUANDO SE HACE CLICK → abrir diálogo
                             onClick = {
-                                // Este onClick es para abrir un detalle si luego lo agregas
-                                vm.cargarProductoParaEdicion(producto)
+                                productoSeleccionado = producto
                             },
 
                             onEditar = {
-                                vm.cargarProductoParaEdicion(producto)
+                                onEditarProducto(producto)
                             },
 
                             onDelete = {
@@ -185,7 +194,7 @@ fun ProductoScreen(
             }
         }
 
-        // ================= DIALOG AGREGAR =================
+        // ================= DIALOGO AGREGAR =================
         if (showDialogAgregar) {
             DialogAgregarProducto(
                 vm = vm,
@@ -194,6 +203,14 @@ fun ProductoScreen(
                     vm.insertProducto()
                     showDialogAgregar = false
                 }
+            )
+        }
+
+        // ================= ⭐ DIALOGO DETALLE PRODUCTO =================
+        productoSeleccionado?.let { prod ->
+            DialogDetalleProducto(
+                producto = prod,
+                onClose = { productoSeleccionado = null }
             )
         }
     }
@@ -218,7 +235,7 @@ fun ProductoCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(6.dp)
-            .clickable { onClick() },        // ← SE AÑADE AQUÍ
+            .clickable { onClick() }, // ⭐ ABRE DETALLE
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
@@ -231,14 +248,18 @@ fun ProductoCard(
                     producto.imagenUri != null -> Image(
                         painter = rememberAsyncImagePainter(producto.imagenUri),
                         contentDescription = null,
-                        modifier = Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)),
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
 
                     producto.imagenResId != null -> Image(
                         painter = painterResource(producto.imagenResId),
                         contentDescription = null,
-                        modifier = Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)),
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
 
@@ -256,6 +277,17 @@ fun ProductoCard(
                     Text(producto.nombre, fontWeight = FontWeight.Bold)
                     Text("Precio: $${producto.precio}")
                     Text("Stock: ${producto.stock}")
+
+                    Text(
+                        when (producto.estado) {
+                            EstadoProducto.DISPONIBLE -> "Estado: Disponible"
+                            EstadoProducto.NO_DISPONIBLE -> "Estado: No disponible"
+                            EstadoProducto.SIN_STOCK -> "Estado: Sin stock"
+                        },
+                        color = Color.Gray,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
 
@@ -303,6 +335,51 @@ fun ProductoCard(
 }
 
 // =====================================================================
+// ===================== DIALOG DETALLE PRODUCTO ========================
+// =====================================================================
+@Composable
+fun DialogDetalleProducto(
+    producto: Producto,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(producto.nombre, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                if (producto.imagenUri != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(producto.imagenUri),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(200.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+                Text("Precio: $${producto.precio}")
+                Text("Stock: ${producto.stock}")
+                Text(
+                    "Estado: " + when (producto.estado) {
+                        EstadoProducto.DISPONIBLE -> "Disponible"
+                        EstadoProducto.NO_DISPONIBLE -> "No disponible"
+                        EstadoProducto.SIN_STOCK -> "Sin stock"
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onClose) {
+                Text("Cerrar")
+            }
+        }
+    )
+}
+
+// =====================================================================
 // ===================== DIALOG AGREGAR PRODUCTO ========================
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
@@ -329,8 +406,13 @@ fun DialogAgregarProducto(
     val cameraPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                val file = File(context.cacheDir, "foto_${System.currentTimeMillis()}.jpg")
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                val file =
+                    File(context.cacheDir, "foto_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
                 photoUriState = uri
                 cameraLauncher.launch(uri)
             } else Toast.makeText(context, "Permiso denegado", Toast.LENGTH_SHORT).show()
@@ -416,7 +498,6 @@ fun DialogAgregarProducto(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Categoría
                 ExposedDropdownMenuBox(
                     expanded = expandedCategoria,
                     onExpandedChange = { expandedCategoria = !expandedCategoria }
@@ -430,7 +511,9 @@ fun DialogAgregarProducto(
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria)
                         },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
                     )
 
                     ExposedDropdownMenu(

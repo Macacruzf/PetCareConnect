@@ -10,12 +10,15 @@ android {
 
     namespace = "com.example.petcareconnect"
 
-    compileSdk = 34   // <--- CORREGIDO
+    // 🔥 Requerido por Compose 1.9, lifecycle 2.9.4, activity 1.11
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.petcareconnect"
         minSdk = 24
-        targetSdk = 34   // <--- CORREGIDO
+        // 🔥 También requerido por core-ktx 1.17 y activity 1.11
+        targetSdk = 36
+
         versionCode = 1
         versionName = "1.0"
 
@@ -32,13 +35,14 @@ android {
         }
     }
 
+    // 🔥 Muy importante: Compose 1.9 usa Java 17
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
 
     buildFeatures {

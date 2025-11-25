@@ -77,7 +77,8 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 email = "admin@petcare.cl",
                                 telefono = "999999999",
                                 password = "Admin.123",
-                                rol = "ADMIN"
+                                rol = "ADMIN",
+                                estado = "ACTIVO"
                             )
                         )
                     }
@@ -89,7 +90,8 @@ abstract class PetCareDatabase : RoomDatabase() {
                                 email = "cliente@petcare.cl",
                                 telefono = "888888888",
                                 password = "Cliente.123",
-                                rol = "CLIENTE"
+                                rol = "CLIENTE",
+                                estado = "ACTIVO"
                             )
                         )
                     }

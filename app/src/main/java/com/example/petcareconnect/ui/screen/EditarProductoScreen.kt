@@ -9,11 +9,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil.compose.rememberAsyncImagePainter
+import com.example.petcareconnect.data.model.EstadoProducto
 import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.ui.viewmodel.ProductoViewModel
 import java.io.File
@@ -43,15 +44,16 @@ fun EditarProductoScreen(
     val context = LocalContext.current
 
     // Cargar datos al abrir
-    LaunchedEffect(producto.idProducto) {
+    LaunchedEffect(Unit) {
         productoViewModel.cargarProductoParaEdicion(producto)
     }
 
-    // BottomSheet
+    val scrollState = rememberScrollState()
+
+    // ---------- IMAGEN ----------
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSheet by remember { mutableStateOf(false) }
 
-    // Cámara
     val photoUriState = remember { mutableStateOf<Uri?>(null) }
 
     val cameraLauncher =
@@ -65,11 +67,7 @@ fun EditarProductoScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 val file = File(context.cacheDir, "producto_edit_${System.currentTimeMillis()}.jpg")
-                val uri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.provider",
-                    file
-                )
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
                 photoUriState.value = uri
                 cameraLauncher.launch(uri)
             } else {
@@ -77,7 +75,6 @@ fun EditarProductoScreen(
             }
         }
 
-    // Galería
     val galleryLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             productoViewModel.onImagenUriChange(uri?.toString())
@@ -96,20 +93,17 @@ fun EditarProductoScreen(
         }
     ) { innerPadding ->
 
+        // ===== Modal para cambiar imagen =====
         if (showSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showSheet = false },
                 sheetState = sheetState
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-
                     Text("Seleccionar imagen", fontWeight = FontWeight.Bold)
-
                     Spacer(Modifier.height(18.dp))
 
                     OutlinedButton(
@@ -143,104 +137,169 @@ fun EditarProductoScreen(
             }
         }
 
-        // CONTENIDO
-        Column(
+        // ================================
+        //      CONTENIDO + BOTÓN FIJO
+        // ================================
+        Box(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(18.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxSize()
         ) {
 
-            Text(
-                "Actualiza la información del producto",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-
-            // ===== IMAGEN =====
-            Box(
+            // ---------------- FORM SCROLLEABLE ----------------
+            Column(
                 modifier = Modifier
-                    .size(150.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE0E0E0))
-                    .align(Alignment.CenterHorizontally)
-                    .clickable { showSheet = true },
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 18.dp)
+                    .verticalScroll(scrollState)
+                    .fillMaxWidth()
+                    .padding(bottom = 100.dp), // espacio para que no tape el botón
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (state.imagenUri != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(state.imagenUri),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text("Toca para cambiar imagen")
+
+                Text(
+                    "Actualiza la información del producto",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                // Imagen
+                Box(
+                    modifier = Modifier
+                        .size(150.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFE0E0E0))
+                        .align(Alignment.CenterHorizontally)
+                        .clickable { showSheet = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (state.imagenUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(state.imagenUri),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text("Toca para cambiar imagen")
+                    }
                 }
+
+                // Nombre
+                OutlinedTextField(
+                    value = state.nombre,
+                    onValueChange = productoViewModel::onNombreChange,
+                    label = { Text("Nombre") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Precio
+                OutlinedTextField(
+                    value = state.precio,
+                    onValueChange = {
+                        if (it.all { ch -> ch.isDigit() || ch == '.' })
+                            productoViewModel.onPrecioChange(it)
+                    },
+                    label = { Text("Precio") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Stock
+                OutlinedTextField(
+                    value = state.stock,
+                    onValueChange = {
+                        if (it.all { ch -> ch.isDigit() })
+                            productoViewModel.onStockChange(it)
+                    },
+                    label = { Text("Stock") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Categoría
+                var expandedCat by remember { mutableStateOf(false) }
+                val categoriaActual = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedCat,
+                    onExpandedChange = { expandedCat = !expandedCat }
+                ) {
+                    OutlinedTextField(
+                        value = categoriaActual?.nombre ?: "Seleccionar categoría",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat)
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expandedCat,
+                        onDismissRequest = { expandedCat = false }
+                    ) {
+                        state.categorias.forEach { categoria ->
+                            DropdownMenuItem(
+                                text = { Text(categoria.nombre) },
+                                onClick = {
+                                    productoViewModel.onCategoriaChange(categoria.idCategoria)
+                                    expandedCat = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Estado
+                Text(
+                    "Estado del producto",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    IconButton(onClick = {
+                        productoViewModel.onEstadoChange(EstadoProducto.DISPONIBLE)
+                    }) {
+                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
+                    }
+
+                    IconButton(onClick = {
+                        productoViewModel.onEstadoChange(EstadoProducto.NO_DISPONIBLE)
+                    }) {
+                        Icon(Icons.Default.Block, null, tint = Color(0xFF616161))
+                    }
+
+                    IconButton(onClick = {
+                        productoViewModel.onEstadoChange(EstadoProducto.SIN_STOCK)
+                    }) {
+                        Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800))
+                    }
+                }
+
+                Text("Estado actual: ${state.estado.name}")
             }
 
-            // ===== NOMBRE =====
-            OutlinedTextField(
-                value = state.nombre,
-                onValueChange = productoViewModel::onNombreChange,
-                label = { Text("Nombre") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // ===== PRECIO =====
-            OutlinedTextField(
-                value = state.precio,
-                onValueChange = {
-                    if (it.all { ch -> ch.isDigit() || ch == '.' })
-                        productoViewModel.onPrecioChange(it)
-                },
-                label = { Text("Precio") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // ===== STOCK =====
-            OutlinedTextField(
-                value = state.stock,
-                onValueChange = {
-                    if (it.all { ch -> ch.isDigit() })
-                        productoViewModel.onStockChange(it)
-                },
-                label = { Text("Stock") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // ===== CATEGORIA =====
-            OutlinedTextField(
-                value = state.categorias.firstOrNull {
-                    it.idCategoria == state.categoriaId
-                }?.nombre ?: "",
-                onValueChange = {},
-                label = { Text("Categoría") },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // ===== ESTADO =====
-            OutlinedTextField(
-                value = state.estado.name,
-                onValueChange = {},
-                label = { Text("Estado") },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(15.dp))
-
+            // ---------------- BOTÓN FIJO ABAJO ----------------
             Button(
                 onClick = {
                     productoViewModel.editarProducto()
                     onVolver()
                 },
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(55.dp)
+                    .padding(18.dp)
+                    .height(55.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6A4CCD),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Guardar cambios", fontWeight = FontWeight.Bold)
             }

@@ -3,16 +3,17 @@ package com.example.petcareconnect.data.remote
 import com.example.petcareconnect.data.mapper.toLocal
 import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.remote.api.ProductoApi
-import com.example.petcareconnect.data.remote.dto.CategoriaDto
+import com.example.petcareconnect.data.remote.dto.CategoriaSimpleDto
 import com.example.petcareconnect.data.remote.dto.EstadoRequest
 import com.example.petcareconnect.data.remote.dto.ProductoDto
+import com.example.petcareconnect.data.remote.dto.ProductoUpdateRequest
 
 class ProductoRemoteRepository(
     private val api: ProductoApi
 ) {
 
     // --------------------------------------------------------
-    // OBTENER PRODUCTOS (usa /movil del Backend)
+    // OBTENER PRODUCTOS (/movil)
     // --------------------------------------------------------
     suspend fun getAllProductosRemotos(): List<Producto> {
         return api.obtenerProductos()
@@ -20,8 +21,8 @@ class ProductoRemoteRepository(
     }
 
     // --------------------------------------------------------
-    // CREAR PRODUCTO (ANDROID)
-    // Enviar objeto ProductoDto al backend
+    // CREAR PRODUCTO
+    // (lo dejamos como estaba porque ya te funciona)
     // --------------------------------------------------------
     suspend fun crearProductoRemoto(
         nombre: String,
@@ -29,37 +30,46 @@ class ProductoRemoteRepository(
         stock: Int,
         categoriaId: Long
     ): Producto {
-        val categoriaDto = CategoriaDto(idCategoria = categoriaId, nombre = "")
+
+        val categoriaSimpleDto = CategoriaSimpleDto(
+            idCategoria = categoriaId,
+            nombre = ""   // El backend solo usa el id
+        )
+
         val productoDto = ProductoDto(
-            idProducto = 0L, // o null si tu dato lo permite
+            idProducto = null,   // backend lo genera
             nombre = nombre,
             precio = precio,
             stock = stock,
             estado = "DISPONIBLE",
-            categoria = categoriaDto,
+            categoria = categoriaSimpleDto,
             imagenUrl = null
         )
-        return api.crearProducto(productoDto).toLocal()
+
+        val creado = api.crearProducto(productoDto)
+        return creado.toLocal()
     }
 
     // --------------------------------------------------------
-    // ACTUALIZAR PRODUCTO (ANDROID)
-    // Usar ProductoDto para actualizar
+    // ACTUALIZAR PRODUCTO
+    // AHORA COINCIDE CON @PutMapping("/{id}") + ProductoCreateDto
     // --------------------------------------------------------
-    suspend fun actualizarProductoRemoto(producto: ProductoDto): Producto {
-        return api.actualizarProducto(producto.idProducto, producto).toLocal()
+    suspend fun actualizarProductoRemoto(
+        id: Long,
+        req: ProductoUpdateRequest
+    ): Producto {
+        val actualizado = api.actualizarProducto(id, req)
+        return actualizado.toLocal()
     }
-
     // --------------------------------------------------------
-    // ELIMINAR PRODUCTO
+    // ELIMINAR
     // --------------------------------------------------------
     suspend fun eliminarProductoRemoto(id: Long) {
         api.eliminarProducto(id)
     }
 
     // --------------------------------------------------------
-    // CAMBIAR ESTADO (ANDROID)
-    // Usa EstadoRequest para enviar estado
+    // CAMBIAR ESTADO
     // --------------------------------------------------------
     suspend fun cambiarEstadoRemoto(idProducto: Long, estado: EstadoRequest) {
         api.cambiarEstadoProducto(idProducto, estado)

@@ -2,7 +2,6 @@ package com.example.petcareconnect.data.repository
 
 import com.example.petcareconnect.data.db.dao.CategoriaDao
 import com.example.petcareconnect.data.model.Categoria
-import com.example.petcareconnect.data.remote.dto.CategoriaDto
 import kotlinx.coroutines.flow.Flow
 
 class CategoriaRepository(private val dao: CategoriaDao) {

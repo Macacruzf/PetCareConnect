@@ -25,11 +25,7 @@ import com.example.petcareconnect.ui.screen.AppRootScreen
 // Retrofit
 import com.example.petcareconnect.data.remote.ApiModule
 import com.example.petcareconnect.data.remote.ProductoRemoteRepository
-import com.example.petcareconnect.data.remote.RetrofitClient
 import com.example.petcareconnect.data.remote.repository.TicketRemoteRepository
-
-// Token de sesión
-import com.example.petcareconnect.data.session.UserSession
 
 class MainActivity : ComponentActivity() {
 
@@ -37,34 +33,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ⭐ Inicializar token provider de Retrofit
-        RetrofitClient.initTokenProvider {
-            UserSession.token
-        }
-
-        // ⭐ Base de datos local
-        val db = PetCareDatabase.getDatabase(applicationContext)
-
-        val usuarioRepo = UsuarioRepository(db.usuarioDao())
-        val productoRepo = ProductoRepository(db.productoDao())
-        val categoriaRepo = CategoriaRepository(db.categoriaDao())
-
-        // ⭐ Repos remotos (API)
+        // ⭐ Repos remotos (únicos que usaremos ahora)
         val productoRemoteRepo = ProductoRemoteRepository(ApiModule.productoApi)
         val ticketRemoteRepo = TicketRemoteRepository()
 
         // ⭐ ViewModel Auth
-        val authViewModel = AuthViewModelFactory(usuarioRepo)
+        val authViewModel = AuthViewModelFactory()
             .create(AuthViewModel::class.java)
 
-        // ⭐ ViewModel Productos
+        // ⭐ ViewModel Productos (solo remoto)
         val productoViewModel = ProductoViewModelFactory(
-            productoRepo,
-            categoriaRepo,
             productoRemoteRepo
         ).create(ProductoViewModel::class.java)
 
-        // ⭐ ViewModel Tickets / Reseñas
+        // ⭐ ViewModel Tickets
         val ticketViewModel = TicketViewModelFactory(ticketRemoteRepo)
             .create(TicketViewModel::class.java)
 

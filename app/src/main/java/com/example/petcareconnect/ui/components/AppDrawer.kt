@@ -39,6 +39,8 @@ fun AppDrawer(
     ModalDrawerSheet(
         modifier = modifier.background(grisClaro)
     ) {
+
+        // Encabezado
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -57,6 +59,7 @@ fun AppDrawer(
             )
         }
 
+        // Items de navegación
         items.forEach { item ->
             NavigationDrawerItem(
                 label = { Text(item.label, color = grisTexto) },
@@ -97,6 +100,7 @@ fun defaultDrawerItems(
     onUsuarios: () -> Unit,
     onCarrito: () -> Unit,
     onPedidos: () -> Unit,
+    onHistorial: () -> Unit,       // ⭐ AGREGADO
     onLogin: () -> Unit,
     onRegister: () -> Unit,
     onLogout: () -> Unit
@@ -104,26 +108,42 @@ fun defaultDrawerItems(
 
     val items = mutableListOf<DrawerItem>()
 
-    // SIEMPRE
+    // SIEMPRE DISPONIBLE
     items.add(DrawerItem("Inicio", Icons.Filled.Home, onHome))
 
+    // -----------------
+    // INVITADO
+    // -----------------
     if (!isLoggedIn) {
         items.add(DrawerItem("Iniciar sesión", Icons.Filled.AccountCircle, onLogin))
         items.add(DrawerItem("Registrar", Icons.Filled.PersonAdd, onRegister))
         return items
     }
 
+    // -----------------
+    // CLIENTE
+    // -----------------
     if (userRole == "CLIENTE") {
         items.add(DrawerItem("Mi carrito", Icons.Filled.ShoppingCart, onCarrito))
         items.add(DrawerItem("Mis pedidos", Icons.Filled.ShoppingBag, onPedidos))
     }
 
+    // -----------------
+    // ADMIN
+    // -----------------
     if (userRole == "ADMIN") {
         items.add(DrawerItem("Productos", Icons.Filled.Pets, onProductos))
         items.add(DrawerItem("Categorías", Icons.Filled.Category, onCategorias))
         items.add(DrawerItem("Usuarios", Icons.Filled.Group, onUsuarios))
+
+        // ⭐ BOTONES QUE FALTABAN
+        items.add(DrawerItem("Ver pedidos", Icons.Filled.LocalShipping, onPedidos))
+        items.add(DrawerItem("Historial", Icons.Filled.History, onHistorial))
     }
 
+    // -----------------
+    // CERRAR SESIÓN
+    // -----------------
     items.add(DrawerItem("Cerrar sesión", Icons.Filled.Logout, onLogout))
 
     return items

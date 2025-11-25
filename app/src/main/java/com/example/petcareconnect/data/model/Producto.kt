@@ -8,7 +8,7 @@ import androidx.room.ForeignKey
 data class Producto(
 
     @PrimaryKey(autoGenerate = true)
-    val idProducto: Long = 0L,
+    val idProducto: Long = 0,
 
     val nombre: String,
     val precio: Double,

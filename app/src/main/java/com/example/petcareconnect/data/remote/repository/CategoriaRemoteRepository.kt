@@ -3,6 +3,7 @@ package com.example.petcareconnect.data.remote
 import com.example.petcareconnect.data.mapper.toLocal
 import com.example.petcareconnect.data.model.Categoria
 import com.example.petcareconnect.data.remote.api.CategoriaApi
+import com.example.petcareconnect.data.remote.dto.CategoriaRequest
 
 class CategoriaRemoteRepository(
     private val api: CategoriaApi
@@ -14,12 +15,12 @@ class CategoriaRemoteRepository(
     }
 
     suspend fun crearCategoria(nombre: String): Categoria {
-        val body = mapOf("nombre" to nombre)
+        val body = CategoriaRequest(nombre)
         return api.crearCategoria(body).toLocal()
     }
 
     suspend fun actualizarCategoria(id: Long, nombre: String): Categoria {
-        val body = mapOf("nombre" to nombre)
+        val body = CategoriaRequest(nombre)
         return api.actualizarCategoria(id, body).toLocal()
     }
 
@@ -27,5 +28,3 @@ class CategoriaRemoteRepository(
         api.eliminarCategoria(id)
     }
 }
-
-

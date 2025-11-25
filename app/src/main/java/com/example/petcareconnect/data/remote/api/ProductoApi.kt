@@ -2,6 +2,7 @@ package com.example.petcareconnect.data.remote.api
 
 import com.example.petcareconnect.data.remote.dto.EstadoRequest
 import com.example.petcareconnect.data.remote.dto.ProductoDto
+import com.example.petcareconnect.data.remote.dto.ProductoUpdateRequest
 import retrofit2.http.*
 
 interface ProductoApi {
@@ -17,7 +18,7 @@ interface ProductoApi {
     @PUT("api/v1/productos/{id}")
     suspend fun actualizarProducto(
         @Path("id") id: Long,
-        @Body producto: ProductoDto
+        @Body request: ProductoUpdateRequest
     ): ProductoDto
 
     @PUT("api/v1/productos/{id}/estado")

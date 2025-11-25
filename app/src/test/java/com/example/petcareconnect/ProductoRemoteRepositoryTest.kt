@@ -1,11 +1,10 @@
 package com.example.petcareconnect
 
 import com.example.petcareconnect.data.model.EstadoProducto
-import com.example.petcareconnect.data.model.Producto
 import com.example.petcareconnect.data.remote.ProductoRemoteRepository
 import com.example.petcareconnect.data.remote.api.ProductoApi
 import com.example.petcareconnect.data.remote.dto.ProductoDto
-import com.example.petcareconnect.data.remote.dto.CategoriaDto
+import com.example.petcareconnect.data.remote.dto.CategoriaSimpleDto
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -36,7 +35,7 @@ class ProductoRemoteRepositoryTest {
             precio = 100.0,
             stock = 10,
             estado = "DISPONIBLE",
-            categoria = CategoriaDto(idCategoria = 1, nombre = "Test")
+            categoria = CategoriaSimpleDto(idCategoria = 1, nombre = "Test")
         )
         `when`(productoApi.obtenerProductos()).thenReturn(listOf(dto))
 
@@ -56,7 +55,7 @@ class ProductoRemoteRepositoryTest {
             precio = 250.0,
             stock = 20,
             estado = "DISPONIBLE",
-            categoria = CategoriaDto(idCategoria = 1, nombre = "Test")
+            categoria = CategoriaSimpleDto(idCategoria = 1, nombre = "Test")
         )
         `when`(productoApi.actualizarProducto(1L, anyMap())).thenReturn(dto)
 
