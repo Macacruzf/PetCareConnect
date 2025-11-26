@@ -29,4 +29,12 @@ interface ProductoApi {
 
     @DELETE("api/v1/productos/{id}")
     suspend fun eliminarProducto(@Path("id") id: Long)
+
+    @PUT("api/v1/productos/{id}/descontar")
+    suspend fun descontarStock(
+        @Path("id") id: Long,
+        @Body body: Map<String, Int>
+    ): Map<String, Any>
+
+
 }

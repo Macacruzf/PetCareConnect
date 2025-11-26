@@ -49,7 +49,7 @@ data class RegisterUiState(
 )
 
 // -------------------------------------------------------------
-//                     MAIN VIEWMODEL
+//                         VIEWMODEL
 // -------------------------------------------------------------
 class AuthViewModel : ViewModel() {
 
@@ -62,11 +62,9 @@ class AuthViewModel : ViewModel() {
     private val _currentUser = MutableStateFlow<Usuario?>(null)
     val currentUser: StateFlow<Usuario?> = _currentUser
 
-    // ⭐ ROL DEL USUARIO GLOBAL
     private val _userRole = MutableStateFlow<String?>(null)
     val userRole: StateFlow<String?> = _userRole
 
-    // LISTA PARA ADMIN
     private val _allUsers = MutableStateFlow<List<Usuario>>(emptyList())
     val allUsers: StateFlow<List<Usuario>> = _allUsers
 
@@ -100,7 +98,6 @@ class AuthViewModel : ViewModel() {
                 val adminId = UserSession.usuarioId ?: return@launch
                 val remotos = ApiModule.usuarioApi.listarUsuarios(adminId)
                 _allUsers.value = remotos.map { it.toLocalModel() }
-
             } catch (e: Exception) {
                 println("Error al cargar usuarios: ${e.message}")
             }
@@ -112,7 +109,6 @@ class AuthViewModel : ViewModel() {
             try {
                 ApiModule.usuarioApi.deleteUser(id)
                 _allUsers.value = _allUsers.value.filter { it.idUsuario != id }
-
             } catch (e: Exception) {
                 println("Error al eliminar usuario: ${e.message}")
             }
@@ -125,7 +121,6 @@ class AuthViewModel : ViewModel() {
     fun updateUserAdmin(usuario: Usuario, onResult: (String?) -> Unit = {}) {
         viewModelScope.launch {
             try {
-
                 val body = UsuarioRemote(
                     idUsuario = usuario.idUsuario,
                     nombreUsuario = usuario.nombreUsuario,
@@ -139,7 +134,10 @@ class AuthViewModel : ViewModel() {
                 val actualizado = ApiModule.usuarioApi.updatePerfil(usuario.idUsuario, body)
 
                 _allUsers.update { lista ->
-                    lista.map { if (it.idUsuario == usuario.idUsuario) actualizado.toLocalModel() else it }
+                    lista.map {
+                        if (it.idUsuario == usuario.idUsuario) actualizado.toLocalModel()
+                        else it
+                    }
                 }
 
                 onResult(null)
@@ -175,13 +173,14 @@ class AuthViewModel : ViewModel() {
     fun submitLogin() = submitLoginRemote()
 
     // -------------------------------------------------------------
-    // SUBMIT LOGIN (MODIFICADO)
+    // SUBMIT LOGIN
     // -------------------------------------------------------------
     fun submitLoginRemote() {
         val s = _login.value
         if (!s.canSubmit || s.isSubmitting) return
 
         viewModelScope.launch {
+
             _login.update { it.copy(isSubmitting = true, errorMsg = null) }
 
             try {
@@ -226,22 +225,13 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
 
                 val msg = when {
-                    e.message?.contains("401") == true ->
-                        "Correo o contraseña incorrectos"
-
-                    e.message?.contains("404") == true ->
-                        "Usuario no encontrado"
-
-                    else ->
-                        "No se pudo iniciar sesión. Intenta nuevamente."
+                    e.message?.contains("401") == true -> "Correo o contraseña incorrectos"
+                    e.message?.contains("404") == true -> "Usuario no encontrado"
+                    else -> "No se pudo iniciar sesión. Intenta nuevamente."
                 }
 
                 _login.update {
-                    it.copy(
-                        isSubmitting = false,
-                        success = false,
-                        errorMsg = msg
-                    )
+                    it.copy(isSubmitting = false, success = false, errorMsg = msg)
                 }
             }
         }
@@ -307,7 +297,7 @@ class AuthViewModel : ViewModel() {
     }
 
     // -------------------------------------------------------------
-    // SUBMIT REGISTRO
+    // SUBMIT REGISTRO (YA NO LOGUEA AUTOMÁTICAMENTE)
     // -------------------------------------------------------------
     fun submitRegister() = submitRegisterRemote()
 
@@ -316,10 +306,11 @@ class AuthViewModel : ViewModel() {
         if (!s.canSubmit || s.isSubmitting) return
 
         viewModelScope.launch {
+
             _register.update { it.copy(isSubmitting = true, errorMsg = null) }
 
             try {
-                val uRemote = ApiModule.usuarioApi.register(
+                ApiModule.usuarioApi.register(
                     RegisterRequest(
                         nombreUsuario = s.name.trim(),
                         email = s.email.trim().lowercase(),
@@ -329,15 +320,7 @@ class AuthViewModel : ViewModel() {
                     )
                 )
 
-                val local = uRemote.toLocalModel()
-                _currentUser.value = local
-
-                UserSession.usuarioId = uRemote.idUsuario
-                UserSession.rol = uRemote.rol
-                UserSession.estado = uRemote.estado
-
-                _userRole.value = uRemote.rol
-
+                // ⭐ IMPORTANTE: el usuario YA NO queda logueado
                 _register.update { it.copy(success = true, isSubmitting = false) }
 
             } catch (e: Exception) {
@@ -383,7 +366,6 @@ class AuthViewModel : ViewModel() {
                 )
 
                 val actualizado = ApiModule.usuarioApi.updatePerfil(id, body)
-
                 _currentUser.value = actualizado.toLocalModel()
 
                 onResult(null)

@@ -1,10 +1,11 @@
 package com.example.petcareconnect.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -12,79 +13,134 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.petcareconnect.data.model.Carrito
 
-/*
- * Pantalla que muestra el detalle final de una venta o pedido.
- * Resume los productos adquiridos, el método de pago y el total abonado.
- * Permite finalizar la compra y regresar al inicio.
- */
 @Composable
 fun DetalleVentaScreen(
-    total: Double,                      // Monto total pagado
-    items: List<Carrito>,               // Lista de productos comprados
-    metodoPago: String = "No especificado", // Método de pago utilizado
-    onFinalizar: () -> Unit             // Acción para volver a la pantalla principal
+    total: Double,
+    items: List<Carrito>,
+    metodoPago: String = "Tarjeta",
+    onFinalizar: () -> Unit
 ) {
-    // Contenedor principal que ocupa toda la pantalla
-    Box(
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
             .padding(16.dp),
-        contentAlignment = Alignment.TopCenter
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Estructura vertical con espaciado entre elementos
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f)
         ) {
-            // Encabezado del detalle de venta
+
+            // --------------------------------------
+            // TÍTULO
+            // --------------------------------------
             Text(
-                "Detalle de la Venta",
+                text = "Detalle de la Venta",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF4CAF50)
+                color = Color(0xFF2E7D32)
             )
 
-            // Lista con desplazamiento que muestra los productos adquiridos
+            // --------------------------------------
+            // LISTA DE PRODUCTOS
+            // --------------------------------------
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // Ocupa el espacio restante disponible
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Cada producto se representa dentro de una tarjeta (Card)
-                items(items) { item ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(item.nombre, fontWeight = FontWeight.Bold)
-                            Text("Cantidad: ${item.cantidad}")
-                            Text("Subtotal: $${item.precio * item.cantidad}")
+
+                if (items.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No hay productos en esta venta",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 40.dp)
+                        )
+                    }
+                } else {
+                    items(items) { item ->
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(3.dp)
+                        ) {
+                            Column(Modifier.padding(14.dp)) {
+
+                                Text(
+                                    text = item.nombre,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF1B5E20)
+                                )
+
+                                Spacer(Modifier.height(6.dp))
+
+                                Text(
+                                    text = "Cantidad: ${item.cantidad}",
+                                    color = Color.DarkGray
+                                )
+
+                                Text(
+                                    text = "Subtotal: $${String.format("%.2f", item.precio * item.cantidad)}",
+                                    color = Color(0xFF2E7D32),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Línea divisoria entre la lista y el resumen de pago
-            Divider()
+            // DIVISOR
+            Divider(thickness = 1.dp, color = Color.LightGray)
 
-            // Monto total pagado
-            Text(
-                "Total Pagado: $${String.format("%.2f", total)}",
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF4CAF50)
-            )
+            // --------------------------------------
+            // TOTAL Y MÉTODO DE PAGO
+            // --------------------------------------
+            Column(horizontalAlignment = Alignment.Start) {
 
-            // Método de pago seleccionado
-            Text("Método de Pago: $metodoPago", color = Color.Gray)
+                Text(
+                    text = "Total Pagado:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Gray
+                )
 
-            // Botón para finalizar la compra y volver al inicio
-            Button(
-                onClick = onFinalizar,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-            ) {
-                Text("Finalizar y volver al inicio", color = Color.White)
+                Text(
+                    text = "$${String.format("%.2f", total)}",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF2E7D32)
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = "Método de Pago: $metodoPago",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Gray
+                )
             }
+        }
+
+        // --------------------------------------
+        // BOTÓN FINALIZAR (FIJO ABAJO)
+        // --------------------------------------
+        Button(
+            onClick = onFinalizar,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(55.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))
+        ) {
+            Text(
+                "Finalizar y volver al inicio",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

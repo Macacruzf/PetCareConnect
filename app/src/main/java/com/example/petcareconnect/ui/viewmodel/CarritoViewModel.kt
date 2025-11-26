@@ -1,72 +1,72 @@
 package com.example.petcareconnect.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.example.petcareconnect.data.model.Carrito
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import com.example.petcareconnect.data.model.Carrito
 
-// ---------------------------------------------------------------------------
-// CarritoViewModel.kt
-// ---------------------------------------------------------------------------
-// Este ViewModel gestiona la lógica del carrito de compras de PetCare Connect.
-// Utiliza un flujo de estado (StateFlow) para reflejar los cambios en la interfaz
-// en tiempo real, como agregar, eliminar o actualizar productos dentro del carrito.
-// ---------------------------------------------------------------------------
-
-
-// ---------------------- ESTADO DE UI ----------------------
-
-// Estado que representa el contenido actual del carrito y el total acumulado.
+// -----------------------------------------------------------
+//  ESTADO DE UI DEL CARRITO
+// -----------------------------------------------------------
 data class CarritoUiState(
-    val items: List<Carrito> = emptyList(), // Lista de productos en el carrito
-    val total: Double = 0.0                 // Total calculado de la compra
+    val items: List<Carrito> = emptyList(),
+    val total: Double = 0.0
 )
 
-
-// ---------------------- VIEWMODEL PRINCIPAL ----------------------
+// -----------------------------------------------------------
+//  VIEWMODEL PRINCIPAL DEL CARRITO
+// -----------------------------------------------------------
 class CarritoViewModel : ViewModel() {
 
-    // Flujo de estado que expone los datos del carrito a la interfaz.
     private val _state = MutableStateFlow(CarritoUiState())
     val state: StateFlow<CarritoUiState> = _state
 
+    // -----------------------------------------------------------
+    //  ⭐ VARIABLES TEMPORALES PARA DETALLE DE VENTA
+    // -----------------------------------------------------------
+    var compraItemsTemp: List<Carrito> = emptyList()
+    var compraTotalTemp: Double = 0.0
+    var compraMetodoTemp: String = ""
+    // -----------------------------------------------------------
 
-    // ---------------------- AGREGAR ITEM ----------------------
-    // Agrega un producto al carrito. Si el producto ya existe, incrementa su cantidad.
-    // Este método produce una animación visual reactiva en la UI,
-    // ya que Compose vuelve a renderizar la lista automáticamente con el nuevo estado.
+    // -----------------------------------------------------------
+    //  AGREGAR ITEM
+    // -----------------------------------------------------------
     fun agregarItem(item: Carrito) {
         _state.update { current ->
 
-            // Verifica si el producto ya existe en la lista
             val existente = current.items.find { it.idProducto == item.idProducto }
 
-            // Si el producto existe, aumenta su cantidad; si no, lo agrega nuevo
             val nuevosItems = if (existente != null) {
+
+                if (existente.cantidad >= existente.stock) {
+                    return@update current
+                }
+
                 current.items.map {
                     if (it.idProducto == item.idProducto)
-                        it.copy(cantidad = it.cantidad + item.cantidad)
+                        it.copy(cantidad = it.cantidad + 1)
                     else it
                 }
+
             } else {
                 current.items + item
             }
 
-            // Retorna el nuevo estado con los cambios actualizados
             current.copy(
                 items = nuevosItems,
-                total = nuevosItems.sumOf { it.precio * it.cantidad } // recalcula el total
+                total = nuevosItems.sumOf { it.precio * it.cantidad }
             )
         }
     }
 
-
-    // ---------------------- ELIMINAR ITEM ----------------------
-    // Elimina un producto específico del carrito según su identificador.
-    // Al eliminarlo, la interfaz se actualiza de forma inmediata gracias a Compose.
+    // -----------------------------------------------------------
+    //  ELIMINAR ITEM
+    // -----------------------------------------------------------
     fun eliminarItem(idItem: Int) {
         _state.update { current ->
+
             val nuevosItems = current.items.filterNot { it.idItem == idItem }
 
             current.copy(
@@ -76,14 +76,18 @@ class CarritoViewModel : ViewModel() {
         }
     }
 
-
-    // ---------------------- ACTUALIZAR CANTIDAD ----------------------
-    // Permite modificar manualmente la cantidad de un producto dentro del carrito.
-    // Cada cambio reactiva la recomposición en pantalla mostrando el nuevo total.
-    fun actualizarCantidad(item: Carrito, nuevaCantidad: Int) {
+    // -----------------------------------------------------------
+    //  INCREMENTAR
+    // -----------------------------------------------------------
+    fun incrementarCantidad(idItem: Int) {
         _state.update { current ->
-            val nuevosItems = current.items.map {
-                if (it.idItem == item.idItem) it.copy(cantidad = nuevaCantidad) else it
+
+            val nuevosItems = current.items.map { item ->
+                if (item.idItem == idItem) {
+                    if (item.cantidad < item.stock)
+                        item.copy(cantidad = item.cantidad + 1)
+                    else item
+                } else item
             }
 
             current.copy(
@@ -93,10 +97,62 @@ class CarritoViewModel : ViewModel() {
         }
     }
 
+    // -----------------------------------------------------------
+    //  DECREMENTAR
+    // -----------------------------------------------------------
+    fun decrementarCantidad(idItem: Int) {
+        _state.update { current ->
 
-    // ---------------------- VACIAR CARRITO ----------------------
-    // Limpia por completo el contenido del carrito.
-    // Este método suele activarse al finalizar una compra o cancelar un pedido.
+            val nuevosItems = current.items.map { item ->
+                if (item.idItem == idItem) {
+                    if (item.cantidad > 1)
+                        item.copy(cantidad = item.cantidad - 1)
+                    else item
+                } else item
+            }
+
+            current.copy(
+                items = nuevosItems,
+                total = nuevosItems.sumOf { it.precio * it.cantidad }
+            )
+        }
+    }
+
+    // -----------------------------------------------------------
+    //  ACTUALIZAR CANTIDAD DIRECTA
+    // -----------------------------------------------------------
+    fun actualizarCantidad(item: Carrito, nuevaCantidad: Int) {
+
+        val cantidadFinal = nuevaCantidad.coerceIn(1, item.stock)
+
+        _state.update { current ->
+
+            val nuevosItems = current.items.map {
+                if (it.idItem == item.idItem) it.copy(cantidad = cantidadFinal)
+                else it
+            }
+
+            current.copy(
+                items = nuevosItems,
+                total = nuevosItems.sumOf { it.precio * it.cantidad }
+            )
+        }
+    }
+
+    // -----------------------------------------------------------
+    //  DESCONTAR STOCK EN BACKEND
+    // -----------------------------------------------------------
+    suspend fun descontarStockBackend(
+        descontar: suspend (idProducto: Long, cantidad: Int) -> Unit
+    ) {
+        state.value.items.forEach { item ->
+            descontar(item.idProducto, item.cantidad)
+        }
+    }
+
+    // -----------------------------------------------------------
+    //  VACIAR CARRITO
+    // -----------------------------------------------------------
     fun vaciarCarrito() {
         _state.value = CarritoUiState()
     }

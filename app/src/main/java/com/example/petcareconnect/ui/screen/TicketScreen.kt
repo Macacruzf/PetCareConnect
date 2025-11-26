@@ -14,16 +14,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.petcareconnect.data.remote.dto.TicketResponse
 import com.example.petcareconnect.ui.viewmodel.TicketViewModel
+import com.example.petcareconnect.ui.theme.PetGreenPrimary   // ← AQUI ESTA EL VERDE
 
 @Composable
 fun TicketScreen(
     productoId: Long,
     idUsuario: Long,
-    vm: TicketViewModel
+    vm: TicketViewModel,
+    esAdmin: Boolean = false
 ) {
+
     val state by vm.state.collectAsState()
 
-    // ⭐ Reset al cambiar de producto
     LaunchedEffect(productoId) {
         vm.resetState()
         vm.loadTickets(productoId)
@@ -43,9 +45,6 @@ fun TicketScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // ===============================
-        // LISTA DE RESEÑAS
-        // ===============================
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -53,63 +52,64 @@ fun TicketScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(state.tickets) { ticket ->
-                TicketCard(ticket)
+                TicketCard(ticket = ticket, esAdmin = esAdmin, vm = vm)
             }
         }
 
         Spacer(Modifier.height(16.dp))
 
-        Text("Tu Opinión", style = MaterialTheme.typography.titleMedium)
+        if (!esAdmin) {
 
-        // ===============================
-        // COMENTARIO PRINCIPAL DEL CLIENTE
-        // ===============================
-        OutlinedTextField(
-            value = state.comentario,
-            onValueChange = vm::onComentarioChange,
-            label = { Text("Escribe tu comentario…") },
-            modifier = Modifier.fillMaxWidth()
-        )
+            Text("Tu Opinión", style = MaterialTheme.typography.titleMedium)
 
-        Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = state.comentario,
+                onValueChange = vm::onComentarioChange,
+                label = { Text("Escribe tu comentario…") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        // ===============================
-        // SELECCIÓN DE ESTRELLAS
-        // ===============================
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            (1..5).forEach { estrella ->
-                IconButton(onClick = { vm.onCalificacionChange(estrella) }) {
-                    Icon(
-                        Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = if (estrella <= state.calificacion)
-                            Color(0xFFFFD700)
-                        else Color.LightGray
-                    )
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                (1..5).forEach { estrella ->
+                    IconButton(onClick = { vm.onCalificacionChange(estrella) }) {
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = if (estrella <= state.calificacion)
+                                Color(0xFFFFD700)
+                            else Color.LightGray
+                        )
+                    }
                 }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 💚 BOTON VERDE
+            Button(
+                onClick = {
+                    vm.enviarTicket(
+                        idUsuario = idUsuario,
+                        idProducto = productoId
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PetGreenPrimary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Enviar reseña")
             }
         }
 
-        Spacer(Modifier.height(8.dp))
-
-        // ===============================
-        // BOTÓN ENVIAR RESEÑA
-        // ===============================
-        Button(
-            onClick = { vm.enviarTicket(productoId, idUsuario) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Enviar reseña")
-        }
-
-        // ===============================
-        // MENSAJES
-        // ===============================
         state.successMsg?.let {
-            Text(it, color = Color(0xFF4CAF50), modifier = Modifier.padding(top = 8.dp))
+            Text(it, color = PetGreenPrimary, modifier = Modifier.padding(top = 8.dp))
         }
 
         state.errorMsg?.let {
@@ -118,13 +118,25 @@ fun TicketScreen(
     }
 }
 
+
+/* ============================================================
+   CARD INDIVIDUAL DE RESEÑA
+============================================================ */
+
 @Composable
-fun TicketCard(ticket: TicketResponse) {
+fun TicketCard(
+    ticket: TicketResponse,
+    esAdmin: Boolean,
+    vm: TicketViewModel
+) {
+
+    var respuesta by remember { mutableStateOf("") }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
+
         Column(Modifier.padding(12.dp)) {
 
             Text(
@@ -134,7 +146,6 @@ fun TicketCard(ticket: TicketResponse) {
 
             Spacer(Modifier.height(4.dp))
 
-            // ⭐ Estrellas
             Row {
                 repeat(ticket.clasificacion) {
                     Icon(
@@ -149,12 +160,10 @@ fun TicketCard(ticket: TicketResponse) {
 
             Text(ticket.comentario)
 
-            // ===============================
-            // 🌟 RESPUESTA DEL ADMIN (SOPORTE)
-            // ===============================
             val respuestas = ticket.comentarios.filter { it.tipoMensaje == "SOPORTE" }
 
             if (respuestas.isNotEmpty()) {
+
                 Spacer(Modifier.height(12.dp))
 
                 respuestas.forEach { resp ->
@@ -178,6 +187,42 @@ fun TicketCard(ticket: TicketResponse) {
                     }
 
                     Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            if (esAdmin) {
+
+                OutlinedTextField(
+                    value = respuesta,
+                    onValueChange = { respuesta = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Responder al cliente…") }
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // 💚 BOTON VERDE
+                Button(
+                    onClick = {
+                        if (respuesta.isNotBlank()) {
+
+                            vm.onNuevoComentarioChange(respuesta)
+
+                            vm.agregarComentario(
+                                idTicket = ticket.idTicket,
+                                idUsuario = ticket.idUsuario
+                            )
+
+                            respuesta = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PetGreenPrimary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Responder como administrador")
                 }
             }
         }

@@ -11,30 +11,30 @@ import androidx.compose.ui.unit.dp
 
 /*
  * Pantalla que se muestra después de registrar un pedido con método de pago en tienda.
- * Informa al usuario que el pedido fue recibido y le permite continuar para ver el detalle de la venta.
+ * Informa al usuario que el pedido fue recibido y permite continuar al detalle de venta.
  */
 @Composable
 fun PagoEnTiendaScreen(onContinuar: () -> Unit) {
-    // Contenedor principal centrado en toda la pantalla
+
+    // Contenedor principal centrado
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // Disposición vertical de los elementos
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
             // Título principal
             Text(
-                "Pago en Tienda",
+                text = "Pago en Tienda",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF4CAF50) // Verde corporativo de PetCare Connect
+                color = Color(0xFF4CAF50)
             )
 
             Spacer(Modifier.height(12.dp))
 
-            // Mensaje informativo al usuario
+            // Mensaje informativo
             Text(
-                "Tu pedido fue registrado. Por favor realiza el pago en la tienda para completar tu compra.",
+                text = "Tu pedido fue registrado. Por favor realiza el pago en la tienda para completar tu compra.",
                 color = Color.Gray,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 24.dp),
@@ -42,9 +42,9 @@ fun PagoEnTiendaScreen(onContinuar: () -> Unit) {
 
             Spacer(Modifier.height(20.dp))
 
-            // Botón que permite continuar al detalle de venta
+            // Botón para continuar
             Button(
-                onClick = onContinuar, // Acción de navegación
+                onClick = onContinuar,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
             ) {
                 Text("Ver detalle de la venta", color = Color.White)

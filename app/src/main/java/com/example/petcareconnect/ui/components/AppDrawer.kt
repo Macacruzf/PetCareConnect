@@ -100,7 +100,6 @@ fun defaultDrawerItems(
     onUsuarios: () -> Unit,
     onCarrito: () -> Unit,
     onPedidos: () -> Unit,
-    onHistorial: () -> Unit,       // ⭐ AGREGADO
     onLogin: () -> Unit,
     onRegister: () -> Unit,
     onLogout: () -> Unit
@@ -108,13 +107,17 @@ fun defaultDrawerItems(
 
     val items = mutableListOf<DrawerItem>()
 
-    // SIEMPRE DISPONIBLE
+    // ⭐ SIEMPRE DISPONIBLE
     items.add(DrawerItem("Inicio", Icons.Filled.Home, onHome))
 
     // -----------------
     // INVITADO
     // -----------------
     if (!isLoggedIn) {
+
+        // ⭐ NUEVO: Productos para invitados
+        items.add(DrawerItem("Productos", Icons.Filled.ShoppingBag, onProductos))
+
         items.add(DrawerItem("Iniciar sesión", Icons.Filled.AccountCircle, onLogin))
         items.add(DrawerItem("Registrar", Icons.Filled.PersonAdd, onRegister))
         return items
@@ -124,6 +127,10 @@ fun defaultDrawerItems(
     // CLIENTE
     // -----------------
     if (userRole == "CLIENTE") {
+
+        // ⭐ NUEVO: Productos para clientes
+        items.add(DrawerItem("Productos", Icons.Filled.ShoppingBag, onProductos))
+
         items.add(DrawerItem("Mi carrito", Icons.Filled.ShoppingCart, onCarrito))
         items.add(DrawerItem("Mis pedidos", Icons.Filled.ShoppingBag, onPedidos))
     }
@@ -132,13 +139,14 @@ fun defaultDrawerItems(
     // ADMIN
     // -----------------
     if (userRole == "ADMIN") {
+
+        // Panel completo
         items.add(DrawerItem("Productos", Icons.Filled.Pets, onProductos))
         items.add(DrawerItem("Categorías", Icons.Filled.Category, onCategorias))
         items.add(DrawerItem("Usuarios", Icons.Filled.Group, onUsuarios))
 
-        // ⭐ BOTONES QUE FALTABAN
         items.add(DrawerItem("Ver pedidos", Icons.Filled.LocalShipping, onPedidos))
-        items.add(DrawerItem("Historial", Icons.Filled.History, onHistorial))
+
     }
 
     // -----------------

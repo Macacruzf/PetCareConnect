@@ -10,7 +10,7 @@ import kotlin.random.Random
 data class Carrito(
 
     // ID interno del item en el carrito (NO es el producto)
-    val idItem: Int = Random.nextInt(),   // esto evita que 2 productos se actualicen juntos
+    val idItem: Int = Random.nextInt(),
 
     // Identificador real del producto desde la BD
     val idProducto: Long,
@@ -19,9 +19,12 @@ data class Carrito(
     val precio: Double,
     val cantidad: Int = 1,
 
+    // ⭐ NECESARIO PARA EVITAR PASARSE DEL STOCK
+    val stock: Int,
+
     // Imagen opcional
     val imagenResId: Int? = null,
 
-    // Si usas imágenes desde URI en el futuro
+    // Para imágenes URI en el futuro
     val imagenUri: String? = null
 )

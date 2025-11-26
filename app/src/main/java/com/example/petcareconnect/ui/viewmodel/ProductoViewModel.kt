@@ -21,7 +21,7 @@ data class ProductoUiState(
     val productos: List<Producto> = emptyList(),
     val categorias: List<Categoria> = emptyList(),
 
-    // formulario
+    // Formulario
     val nombre: String = "",
     val precio: String = "",
     val stock: String = "",
@@ -38,7 +38,7 @@ data class ProductoUiState(
 )
 
 // ----------------------------------------------------------
-// VIEWMODEL → SOLO BACKEND
+// VIEWMODEL PRINCIPAL
 // ----------------------------------------------------------
 class ProductoViewModel(
     private val remoteRepository: ProductoRemoteRepository
@@ -53,7 +53,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // CARGAR PRODUCTOS DESDE BACKEND
+    // CARGAR PRODUCTOS
     // ------------------------------------------------------
     private fun loadProductos() {
         viewModelScope.launch {
@@ -61,6 +61,11 @@ class ProductoViewModel(
                 _state.value = _state.value.copy(isLoading = true)
 
                 val productos = remoteRepository.getAllProductosRemotos()
+
+                productos.forEach { p ->
+                    println("📦 RECIBIDO → ${p.nombre} stock=${p.stock}")
+                }
+
                 _state.value = _state.value.copy(
                     productos = productos,
                     isLoading = false
@@ -76,7 +81,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // CATEGORÍAS (MOMENTÁNEO)
+    // CATEGORÍAS (HARDCODE TEMPORAL)
     // ------------------------------------------------------
     private fun loadCategorias() {
         _state.value = _state.value.copy(
@@ -90,7 +95,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // INSERTAR PRODUCTO
+    // CREAR PRODUCTO
     // ------------------------------------------------------
     fun insertProducto() {
         val nombre = state.value.nombre.trim()
@@ -105,12 +110,7 @@ class ProductoViewModel(
 
         viewModelScope.launch {
             try {
-                remoteRepository.crearProductoRemoto(
-                    nombre = nombre,
-                    precio = precio,
-                    stock = stock,
-                    categoriaId = categoriaId
-                )
+                remoteRepository.crearProductoRemoto(nombre, precio, stock, categoriaId)
 
                 setSuccess("Producto creado correctamente")
                 loadProductos()
@@ -123,7 +123,7 @@ class ProductoViewModel(
     }
 
     // ------------------------------------------------------
-    // CARGAR PRODUCTO PARA EDITAR
+    // CARGAR PRODUCTO PARA EDICIÓN
     // ------------------------------------------------------
     fun cargarProductoParaEdicion(producto: Producto) {
         _state.value = _state.value.copy(
@@ -167,9 +167,9 @@ class ProductoViewModel(
         viewModelScope.launch {
             try {
                 remoteRepository.actualizarProductoRemoto(id, request)
-
                 setSuccess("Producto actualizado")
-                loadProductos()       // ← recarga UI cliente + admin
+
+                loadProductos()
                 limpiarFormulario()
 
             } catch (e: Exception) {
@@ -206,10 +206,27 @@ class ProductoViewModel(
                 )
 
                 setSuccess("Estado actualizado")
-                loadProductos()   // ← ACTUALIZA TODO EN VIVO
+                loadProductos()
 
             } catch (e: Exception) {
                 setError("Error al cambiar estado: ${e.message}")
+            }
+        }
+    }
+
+    // ------------------------------------------------------
+    // DESCONTAR STOCK (SE LLAMA DESDE SIMULACION PAGO)
+    // ------------------------------------------------------
+    fun descontarStock(idProducto: Long, cantidad: Int) {
+        viewModelScope.launch {
+            try {
+                remoteRepository.descontarStockRemoto(idProducto, cantidad)
+                println("✔ Stock descontado → id=$idProducto cantidad=$cantidad")
+
+                loadProductos()
+
+            } catch (e: Exception) {
+                setError("Error al descontar stock: ${e.message}")
             }
         }
     }
@@ -251,10 +268,7 @@ class ProductoViewModel(
     }
 
     fun limpiarMensajes() {
-        _state.value = _state.value.copy(
-            successMsg = null,
-            errorMsg = null
-        )
+        _state.value = _state.value.copy(successMsg = null, errorMsg = null)
     }
 }
 
@@ -264,6 +278,7 @@ class ProductoViewModel(
 class ProductoViewModelFactory(
     private val remoteRepository: ProductoRemoteRepository
 ) : ViewModelProvider.Factory {
+
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProductoViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")

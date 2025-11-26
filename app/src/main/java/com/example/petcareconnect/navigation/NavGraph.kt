@@ -1,13 +1,9 @@
 package com.example.petcareconnect.navigation
 
-import android.app.Application
-import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -19,8 +15,15 @@ import com.example.petcareconnect.ui.screen.*
 import com.example.petcareconnect.ui.viewmodel.*
 import com.example.petcareconnect.data.model.Carrito
 import com.example.petcareconnect.navigation.Route
-import com.google.gson.Gson
 import kotlinx.coroutines.launch
+
+// =============================================================
+// VARIABLES TEMPORALES PARA LA VENTA (SE GUARDAN ANTES DE LIMPIAR EL CARRITO)
+// =============================================================
+private var compraItemsTemp: List<Carrito> = emptyList()
+private var compraTotalTemp: Double = 0.0
+private var compraMetodoTemp: String = "No especificado"
+
 
 @Composable
 fun AppNavGraph(
@@ -40,7 +43,10 @@ fun AppNavGraph(
     val carritoViewModel: CarritoViewModel = viewModel()
     val pedidosViewModel: PedidosViewModel = viewModel()
 
-    // Navegadores
+
+    // ------------------------------------------------------------
+    // NAVEGADORES
+    // ------------------------------------------------------------
     val goHome = { navController.navigate(Route.Home.path) }
     val goLogin = { navController.navigate(Route.Login.path) }
     val goRegister = { navController.navigate(Route.Register.path) }
@@ -52,6 +58,10 @@ fun AppNavGraph(
     val goPedidos = { navController.navigate(Route.PedidosClientes.path) }
     val goPerfil = { navController.navigate(Route.Perfil.path) }
 
+
+    // =============================================================
+    // DRAWER + TOPBAR
+    // =============================================================
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -85,10 +95,6 @@ fun AppNavGraph(
                         scope.launch { drawerState.close() }
                         goPedidos()
                     },
-                    onHistorial = {
-                        scope.launch { drawerState.close() }
-                        goHistorial()
-                    },
                     onLogin = {
                         scope.launch { drawerState.close() }
                         goLogin()
@@ -116,21 +122,25 @@ fun AppNavGraph(
                     onHome = goHome,
                     onLogin = goLogin,
                     onRegister = goRegister,
-                    onPerfil = goPerfil
+                    onPerfil = goPerfil,
+                    onCarrito = goCarrito
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
 
+
+            // =============================================================
+            // NAVHOST COMPLETO
+            // =============================================================
             NavHost(
                 navController = navController,
                 startDestination = Route.Home.path,
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-                /* ============================================================
-                   HOME — SOLO ENVÍA usuarioId y datos reales
-                ============================================================ */
+
+                // -- HOME --------------------------------------------------
                 composable(Route.Home.path) {
 
                     val state by productoViewModel.state.collectAsState()
@@ -154,6 +164,7 @@ fun AppNavGraph(
                                     nombre = producto.nombre,
                                     precio = producto.precio,
                                     cantidad = 1,
+                                    stock = producto.stock,
                                     imagenResId = producto.imagenResId
                                 )
                             )
@@ -189,9 +200,8 @@ fun AppNavGraph(
                     )
                 }
 
-                /* ============================================================
-                   LOGIN
-                ============================================================ */
+
+                // --- LOGIN -----------------------------------------------
                 composable(Route.Login.path) {
                     LoginScreenVm(
                         viewModel = authViewModel,
@@ -200,9 +210,7 @@ fun AppNavGraph(
                     )
                 }
 
-                /* ============================================================
-                   REGISTRO
-                ============================================================ */
+                // --- REGISTRO -------------------------------------------
                 composable(Route.Register.path) {
                     RegisterScreenVm(
                         vm = authViewModel,
@@ -211,35 +219,22 @@ fun AppNavGraph(
                     )
                 }
 
-                /* ============================================================
-                   DETALLE PRODUCTO + RESEÑAS
-                ============================================================ */
-                composable("detalleProducto/{productoId}") { entry ->
-
-                    val productoId = entry.arguments?.getString("productoId")?.toLongOrNull()
-                    val state by productoViewModel.state.collectAsState()
-
-                    val producto = state.productos.firstOrNull { it.idProducto.toLong() == productoId }
-
-                    val usuarioId = currentUser?.idUsuario?.toLong() ?: 0L
-
-                    if (producto != null) {
-                        ProductoDetalleScreen(
-                            producto = producto,
-                            usuarioId = usuarioId,
-                            vm = ticketViewModel
-                        )
-                    } else {
-                        Text("❌ Producto no encontrado")
-                    }
+                // --- PERFIL ---------------------------------------------
+                composable(Route.Perfil.path) {
+                    PerfilScreen(
+                        usuario = currentUser,
+                        authViewModel = authViewModel,
+                        onVolver = { navController.popBackStack() }
+                    )
                 }
 
-                /* ============================================================
-                   RESTO DE RUTAS (IGUAL QUE ANTES)
-                ============================================================ */
 
-                composable(Route.Categorias.path) { CategoriaScreen() }
+                // --- CATEGORÍAS -----------------------------------------
+                composable(Route.Categorias.path) {
+                    CategoriaScreen()
+                }
 
+                // --- USUARIOS -------------------------------------------
                 composable(Route.Usuarios.path) {
                     UsuarioScreen(
                         authViewModel = authViewModel,
@@ -252,7 +247,186 @@ fun AppNavGraph(
                     )
                 }
 
-                // Puedes mantener el resto igual que ya lo tenías...
+                // --- EDITAR USUARIO ------------------------------------
+                composable(Route.EditarUsuario.path) {
+                    EditarUsuarioScreen(
+                        idUsuario = navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.get<Int>("idUsuarioEditar") ?: 0,
+
+                        authViewModel = authViewModel,
+                        onVolver = { navController.popBackStack() }
+                    )
+                }
+
+
+                // --- PRODUCTOS -----------------------------------------
+                composable(Route.Productos.path) {
+                    ProductoScreen(
+                        rol = userRole,
+                        productoViewModel = productoViewModel,
+
+                        onAgregarAlCarrito = { producto ->
+                            carritoViewModel.agregarItem(
+                                Carrito(
+                                    idProducto = producto.idProducto,
+                                    nombre = producto.nombre,
+                                    precio = producto.precio,
+                                    cantidad = 1,
+                                    stock = producto.stock,
+                                    imagenResId = producto.imagenResId
+                                )
+                            )
+                            scope.launch { snackbarHostState.showSnackbar("Producto agregado") }
+                        },
+
+                        onEditarProducto = { producto ->
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("productoId", producto.idProducto)
+
+                            navController.navigate(Route.EditarProducto.path)
+                        }
+                    )
+                }
+
+
+                // --- EDITAR PRODUCTO -----------------------------------
+                composable(Route.EditarProducto.path) {
+
+                    val productoIdLong = navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<Int>("productoId")
+                        ?.toLong() ?: 0L
+
+                    val state by productoViewModel.state.collectAsState()
+                    val producto = state.productos.firstOrNull { it.idProducto == productoIdLong }
+
+                    if (producto == null) {
+                        Text("❌ Producto no encontrado")
+                    } else {
+                        EditarProductoScreen(
+                            productoViewModel = productoViewModel,
+                            producto = producto,
+                            onVolver = { navController.popBackStack() }
+                        )
+                    }
+                }
+
+
+                // --- CARRITO --------------------------------------------
+                composable(Route.Carrito.path) {
+                    CarritoScreen(
+                        viewModel = carritoViewModel,
+                        onConfirmarCompra = {
+                            navController.navigate(Route.Pago.path)
+                        }
+                    )
+                }
+
+
+                // --- MÉTODO DE PAGO -------------------------------------
+                composable(Route.Pago.path) {
+                    PagoScreen(
+                        carritoViewModel = carritoViewModel,
+                        onEfectivoOTransferencia = {
+
+                            // Guardar datos ANTES de vaciar
+                            val st = carritoViewModel.state.value
+                            compraItemsTemp = st.items
+                            compraTotalTemp = st.total
+                            compraMetodoTemp = "Efectivo / Transferencia"
+
+                            navController.navigate(Route.PagoEnTienda.path)
+                        },
+                        onTarjeta = {
+                            navController.navigate(Route.PagoTarjeta.path)
+                        }
+                    )
+                }
+
+
+                // --- PAGO EN TIENDA -------------------------------------
+                composable(Route.PagoEnTienda.path) {
+                    PagoEnTiendaScreen(
+                        onContinuar = {
+
+                            val st = carritoViewModel.state.value
+
+                            // Guardar datos temporales
+                            compraItemsTemp = st.items
+                            compraTotalTemp = st.total
+                            compraMetodoTemp = "Pago en tienda"
+
+                            // ⭐ REGISTRAR PEDIDO
+                            pedidosViewModel.registrarPedido(
+                                items = compraItemsTemp,
+                                total = compraTotalTemp,
+                                metodoPago = compraMetodoTemp
+                            )
+
+                            carritoViewModel.vaciarCarrito()
+
+                            navController.navigate(Route.DetalleVenta.path)
+                        }
+                    )
+                }
+
+
+
+                // --- SIMULACIÓN TARJETA ---------------------------------
+                composable(Route.PagoTarjeta.path) {
+                    SimulacionPagoScreen(
+                        carritoViewModel = carritoViewModel,
+                        productoViewModel = productoViewModel,
+                        onPagoExitoso = {
+
+                            val st = carritoViewModel.state.value
+
+                            // Guardar datos temporales
+                            compraItemsTemp = st.items
+                            compraTotalTemp = st.total
+                            compraMetodoTemp = "Tarjeta"
+
+                            // ⭐ REGISTRAR PEDIDO
+                            pedidosViewModel.registrarPedido(
+                                items = compraItemsTemp,
+                                total = compraTotalTemp,
+                                metodoPago = compraMetodoTemp
+                            )
+
+                            carritoViewModel.vaciarCarrito()
+
+                            navController.navigate(Route.DetalleVenta.path)
+                        }
+                    )
+                }
+
+
+
+                // --- DETALLE DE LA VENTA FINAL --------------------------
+                composable(Route.DetalleVenta.path) {
+
+                    DetalleVentaScreen(
+                        total = compraTotalTemp,
+                        items = compraItemsTemp,
+                        metodoPago = compraMetodoTemp,
+                        onFinalizar = {
+                            goHome()
+                        }
+                    )
+                }
+
+
+                // --- PEDIDOS DEL CLIENTE --------------------------------
+                composable(Route.PedidosClientes.path) {
+                    PedidosClienteScreen(
+                        pedidosViewModel = pedidosViewModel,
+                        rol = userRole ?: "CLIENTE",
+                        onVolver = { navController.popBackStack() }
+                    )
+                }
+
             }
         }
     }

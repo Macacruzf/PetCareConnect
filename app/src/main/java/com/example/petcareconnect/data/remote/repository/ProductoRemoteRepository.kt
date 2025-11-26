@@ -74,4 +74,9 @@ class ProductoRemoteRepository(
     suspend fun cambiarEstadoRemoto(idProducto: Long, estado: EstadoRequest) {
         api.cambiarEstadoProducto(idProducto, estado)
     }
+    suspend fun descontarStockRemoto(id: Long, cantidad: Int): Map<String, Any> {
+        return api.descontarStock(id, mapOf("cantidad" to cantidad))
+    }
+
+
 }

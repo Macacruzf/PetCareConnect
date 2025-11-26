@@ -43,14 +43,13 @@ fun EditarProductoScreen(
     val state by productoViewModel.state.collectAsState()
     val context = LocalContext.current
 
-    // Cargar datos al abrir
     LaunchedEffect(Unit) {
         productoViewModel.cargarProductoParaEdicion(producto)
     }
 
     val scrollState = rememberScrollState()
 
-    // ---------- IMAGEN ----------
+    // -------- Imagen --------
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSheet by remember { mutableStateOf(false) }
 
@@ -93,14 +92,16 @@ fun EditarProductoScreen(
         }
     ) { innerPadding ->
 
-        // ===== Modal para cambiar imagen =====
+        // ===== BottomSheet =====
         if (showSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showSheet = false },
                 sheetState = sheetState
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text("Seleccionar imagen", fontWeight = FontWeight.Bold)
@@ -137,22 +138,21 @@ fun EditarProductoScreen(
             }
         }
 
-        // ================================
-        //      CONTENIDO + BOTÓN FIJO
-        // ================================
+        // ------------------------------------------------------------
+        //       CONTENIDO + BOTÓN FIJO
+        // ------------------------------------------------------------
         Box(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
 
-            // ---------------- FORM SCROLLEABLE ----------------
             Column(
                 modifier = Modifier
                     .padding(horizontal = 18.dp)
                     .verticalScroll(scrollState)
                     .fillMaxWidth()
-                    .padding(bottom = 100.dp), // espacio para que no tape el botón
+                    .padding(bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
@@ -195,8 +195,9 @@ fun EditarProductoScreen(
                 OutlinedTextField(
                     value = state.precio,
                     onValueChange = {
-                        if (it.all { ch -> ch.isDigit() || ch == '.' })
+                        if (it.all { ch -> ch.isDigit() || ch == '.' }) {
                             productoViewModel.onPrecioChange(it)
+                        }
                     },
                     label = { Text("Precio") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -217,7 +218,9 @@ fun EditarProductoScreen(
 
                 // Categoría
                 var expandedCat by remember { mutableStateOf(false) }
-                val categoriaActual = state.categorias.firstOrNull { it.idCategoria == state.categoriaId }
+                val categoriaActual = state.categorias.firstOrNull {
+                    it.idCategoria == state.categoriaId
+                }
 
                 ExposedDropdownMenuBox(
                     expanded = expandedCat,
@@ -284,7 +287,9 @@ fun EditarProductoScreen(
                 Text("Estado actual: ${state.estado.name}")
             }
 
-            // ---------------- BOTÓN FIJO ABAJO ----------------
+            // ----------------------------------------------------
+            //            BOTÓN FIJO — YA SIN MORADO
+            // ----------------------------------------------------
             Button(
                 onClick = {
                     productoViewModel.editarProducto()
@@ -296,7 +301,7 @@ fun EditarProductoScreen(
                     .padding(18.dp)
                     .height(55.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6A4CCD),
+                    containerColor = Color(0xFF2196F3),   // 🔵 Azul acento
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp)
