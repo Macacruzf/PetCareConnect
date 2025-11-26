@@ -32,8 +32,8 @@ class CarritoRepositoryTest {
     fun `getAllItems retorna flow de items del DAO`() = runTest {
         // Given
         val expectedItems = listOf(
-            Carrito(idItem = 1, idProducto = 10L, nombre = "Collar", precio = 15.99, cantidad = 2),
-            Carrito(idItem = 2, idProducto = 20L, nombre = "Pelota", precio = 8.50, cantidad = 1)
+            Carrito(idItem = 1, idProducto = 10L, nombre = "Collar", precio = 15.99, cantidad = 2, stock = 10),
+            Carrito(idItem = 2, idProducto = 20L, nombre = "Pelota", precio = 8.50, cantidad = 1, stock = 5)
         )
         every { carritoDao.getAllItems() } returns flowOf(expectedItems)
 
@@ -64,7 +64,7 @@ class CarritoRepositoryTest {
     @Test
     fun `insertItem llama al DAO insert`() = runTest {
         // Given
-        val newItem = Carrito(idItem = 0, idProducto = 30L, nombre = "Correa", precio = 12.99, cantidad = 1)
+        val newItem = Carrito(idItem = 0, idProducto = 30L, nombre = "Correa", precio = 12.99, cantidad = 1, stock = 15)
         coEvery { carritoDao.insert(newItem) } just Runs
 
         // When
@@ -90,7 +90,7 @@ class CarritoRepositoryTest {
     @Test
     fun `updateItem llama al DAO update`() = runTest {
         // Given
-        val updatedItem = Carrito(idItem = 1, idProducto = 10L, nombre = "Collar Premium", precio = 18.99, cantidad = 3)
+        val updatedItem = Carrito(idItem = 1, idProducto = 10L, nombre = "Collar Premium", precio = 18.99, cantidad = 3, stock = 10)
         coEvery { carritoDao.update(updatedItem) } just Runs
 
         // When
