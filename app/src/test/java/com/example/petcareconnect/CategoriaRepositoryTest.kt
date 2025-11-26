@@ -3,74 +3,97 @@ package com.example.petcareconnect
 import com.example.petcareconnect.data.db.dao.CategoriaDao
 import com.example.petcareconnect.data.model.Categoria
 import com.example.petcareconnect.data.repository.CategoriaRepository
-import com.google.common.truth.Truth.assertThat
+import io.mockk.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mock
-import org.mockito.Mockito.*
-import org.mockito.MockitoAnnotations
+import org.junit.Assert.*
 
 class CategoriaRepositoryTest {
 
-    @Mock
     private lateinit var categoriaDao: CategoriaDao
-
     private lateinit var repository: CategoriaRepository
 
     @Before
     fun setup() {
-        MockitoAnnotations.openMocks(this)
+        categoriaDao = mockk()
         repository = CategoriaRepository(categoriaDao)
     }
 
+    @After
+    fun tearDown() {
+        clearAllMocks()
+    }
+
     @Test
-    fun `getAllCategorias retorna flow de DAO`() {
+    fun `getAllCategorias retorna flow de DAO`() = runTest {
+        // Given
         val categorias = listOf(Categoria(idCategoria = 1, nombre = "Test"))
-        `when`(categoriaDao.getAll()).thenReturn(flowOf(categorias))
+        every { categoriaDao.getAll() } returns flowOf(categorias)
 
-        val result = repository.getAllCategorias()
+        // When
+        val result = repository.getAllCategorias().first()
 
-        assertThat(result).isEqualTo(flowOf(categorias))
-        verify(categoriaDao).getAll()
+        // Then
+        assertEquals(1, result.size)
+        assertEquals("Test", result[0].nombre)
+        verify(exactly = 1) { categoriaDao.getAll() }
     }
 
     @Test
     fun `getAllOnce retorna lista de DAO`() = runTest {
+        // Given
         val categorias = listOf(Categoria(idCategoria = 1, nombre = "Test"))
-        `when`(categoriaDao.getAllOnce()).thenReturn(categorias)
+        coEvery { categoriaDao.getAllOnce() } returns categorias
 
+        // When
         val result = repository.getAllOnce()
 
-        assertThat(result).isEqualTo(categorias)
-        verify(categoriaDao).getAllOnce()
+        // Then
+        assertEquals(1, result.size)
+        assertEquals("Test", result[0].nombre)
+        coVerify(exactly = 1) { categoriaDao.getAllOnce() }
     }
 
     @Test
     fun `insert llama a DAO insert`() = runTest {
+        // Given
         val categoria = Categoria(idCategoria = 1, nombre = "Test")
+        coEvery { categoriaDao.insert(categoria) } just Runs
 
+        // When
         repository.insert(categoria)
 
-        verify(categoriaDao).insert(categoria)
+        // Then
+        coVerify(exactly = 1) { categoriaDao.insert(categoria) }
     }
 
     @Test
     fun `deleteById llama a DAO deleteById`() = runTest {
-        val id = 1
+        // Given
+        val id = 1L
+        coEvery { categoriaDao.deleteById(id) } just Runs
 
+        // When
         repository.deleteById(id)
 
-        verify(categoriaDao).deleteById(id)
+        // Then
+        coVerify(exactly = 1) { categoriaDao.deleteById(id) }
     }
 
     @Test
     fun `update llama a DAO update`() = runTest {
+        // Given
         val categoria = Categoria(idCategoria = 1, nombre = "Updated")
+        coEvery { categoriaDao.update(categoria) } just Runs
 
+        // When
         repository.update(categoria)
 
-        verify(categoriaDao).update(categoria)
+        // Then
+        coVerify(exactly = 1) { categoriaDao.update(categoria) }
     }
 }
