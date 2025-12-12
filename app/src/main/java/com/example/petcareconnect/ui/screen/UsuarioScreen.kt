@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+// import androidx.compose.material.icons.filled.Edit // ⛔ REMOVIDO: Edición deshabilitada
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +21,7 @@ import com.example.petcareconnect.ui.viewmodel.AuthViewModel
 @Composable
 fun UsuarioScreen(
     authViewModel: AuthViewModel,
-    onEditarUsuario: (Usuario) -> Unit = {}
+    @Suppress("UNUSED_PARAMETER") onEditarUsuario: (Usuario) -> Unit = {}
 ) {
     val usuarios by authViewModel.allUsers.collectAsState()
 
@@ -104,13 +104,14 @@ fun UsuarioScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
 
-                                    IconButton(onClick = { onEditarUsuario(user) }) {
-                                        Icon(
-                                            Icons.Default.Edit,
-                                            contentDescription = "Editar usuario",
-                                            tint = PetGreenPrimary
-                                        )
-                                    }
+                                    // ⛔ EDITAR DESHABILITADO: El admin no puede modificar usuarios
+                                    // IconButton(onClick = { onEditarUsuario(user) }) {
+                                    //     Icon(
+                                    //         Icons.Default.Edit,
+                                    //         contentDescription = "Editar usuario",
+                                    //         tint = PetGreenPrimary
+                                    //     )
+                                    // }
 
                                     IconButton(
                                         onClick = { authViewModel.deleteUser(user.idUsuario) }

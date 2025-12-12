@@ -238,26 +238,23 @@ fun AppNavGraph(
                 composable(Route.Usuarios.path) {
                     UsuarioScreen(
                         authViewModel = authViewModel,
-                        onEditarUsuario = { usuario ->
-                            navController.currentBackStackEntry
-                                ?.savedStateHandle
-                                ?.set("idUsuarioEditar", usuario.idUsuario)
-                            navController.navigate(Route.EditarUsuario.path)
+                        onEditarUsuario = { _ ->
+                            // ⛔ NAVEGACIÓN DESHABILITADA: El admin no puede modificar usuarios
                         }
                     )
                 }
 
-                // --- EDITAR USUARIO ------------------------------------
-                composable(Route.EditarUsuario.path) {
-                    EditarUsuarioScreen(
-                        idUsuario = navController.previousBackStackEntry
-                            ?.savedStateHandle
-                            ?.get<Int>("idUsuarioEditar") ?: 0,
-
-                        authViewModel = authViewModel,
-                        onVolver = { navController.popBackStack() }
-                    )
-                }
+                // --- EDITAR USUARIO - ⛔ DESHABILITADO ------------------------------------
+                // composable(Route.EditarUsuario.path) {
+                //     EditarUsuarioScreen(
+                //         idUsuario = navController.previousBackStackEntry
+                //             ?.savedStateHandle
+                //             ?.get<Int>("idUsuarioEditar") ?: 0,
+                //
+                //         authViewModel = authViewModel,
+                //         onVolver = { navController.popBackStack() }
+                //     )
+                // }
 
 
                 // --- PRODUCTOS -----------------------------------------

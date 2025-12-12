@@ -125,36 +125,12 @@ class AuthViewModel : ViewModel() {
     }
 
     // -------------------------------------------------------------
-    // UPDATE USER ADMIN
+    // UPDATE USER ADMIN - ⛔ DESHABILITADO
     // -------------------------------------------------------------
+    @Suppress("UNUSED_PARAMETER")
     fun updateUserAdmin(usuario: Usuario, onResult: (String?) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val body = UsuarioRemote(
-                    idUsuario = usuario.idUsuario,
-                    nombreUsuario = usuario.nombreUsuario,
-                    email = usuario.email,
-                    telefono = usuario.telefono,
-                    password = usuario.password,
-                    rol = usuario.rol,
-                    estado = usuario.estado
-                )
-
-                val actualizado = ApiModule.usuarioApi.updatePerfil(usuario.idUsuario, body)
-
-                _allUsers.update { lista ->
-                    lista.map {
-                        if (it.idUsuario == usuario.idUsuario) actualizado.toLocalModel()
-                        else it
-                    }
-                }
-
-                onResult(null)
-
-            } catch (e: Exception) {
-                onResult("Error al actualizar usuario: ${e.message}")
-            }
-        }
+        // ⛔ FUNCIONALIDAD DESHABILITADA: El admin no puede modificar usuarios
+        onResult("Función deshabilitada: El admin no puede modificar datos de usuarios")
     }
 
     // -------------------------------------------------------------
