@@ -100,7 +100,7 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
 
     // --- Coil para imágenes ---
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // --- DataStore ---
     implementation("androidx.datastore:datastore-preferences:1.1.1")
@@ -112,6 +112,9 @@ dependencies {
 
     // --- Gson ---
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // --- Accompanist Permissions (para cámara/galería) ---
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     //librerias de test locales
     testImplementation(libs.junit)

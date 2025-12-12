@@ -243,32 +243,49 @@ fun ProductoCard(
         Column(Modifier.padding(12.dp)) {
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-
+                // ✅ PRIORIDAD: imagenUrl (backend) > imagenUri (local) > imagenResId (drawable) > icono default
                 when {
-                    producto.imagenUri != null -> Image(
-                        painter = rememberAsyncImagePainter(producto.imagenUri),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(70.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                    producto.imagenUrl != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(producto.imagenUrl),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(70.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    producto.imagenUri != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(producto.imagenUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(70.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    producto.imagenResId != null -> {
+                        Image(
+                            painter = painterResource(producto.imagenResId),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(70.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
 
-                    producto.imagenResId != null -> Image(
-                        painter = painterResource(producto.imagenResId),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(70.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    else -> Icon(
-                        Icons.Default.Pets,
-                        contentDescription = null,
-                        modifier = Modifier.size(70.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    else -> {
+                        Icon(
+                            Icons.Default.Pets,
+                            contentDescription = null,
+                            modifier = Modifier.size(70.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(12.dp))
@@ -348,15 +365,49 @@ fun DialogDetalleProducto(
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                if (producto.imagenUri != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(producto.imagenUri),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(200.dp)
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                // ✅ PRIORIDAD: imagenUrl (backend) > imagenUri (local) > imagenResId (drawable) > icono default
+                when {
+                    producto.imagenUrl != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(producto.imagenUrl),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(200.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    producto.imagenUri != null -> {
+                        Image(
+                            painter = rememberAsyncImagePainter(producto.imagenUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(200.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    producto.imagenResId != null -> {
+                        Image(
+                            painter = painterResource(producto.imagenResId),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(200.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    else -> {
+                        Icon(
+                            Icons.Default.Pets,
+                            contentDescription = null,
+                            modifier = Modifier.size(200.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(10.dp))

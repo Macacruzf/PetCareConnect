@@ -7,10 +7,13 @@ import com.example.petcareconnect.data.remote.api.UsuarioApi
 
 object ApiModule {
 
-    private const val IP = "10.0.2.2"
-
+    // ⚙️ CONFIGURACIÓN DE IP
+    // - Para EMULADOR: usar "10.0.2.2"
+    // - Para DISPOSITIVO FÍSICO: usar tu IP local (ejemplo: "192.168.0.12")
+    // - Para HAMACHI/VPN: usar "26.241.40.40"
+    private const val IP = "10.0.2.2" // ⚠️ Para EMULADOR (localhost)
     private const val PRODUCTO_URL = "http://$IP:8086/"
-    private const val TICKET_URL = "http://$IP:8087/api/"
+    private const val TICKET_URL = "http://$IP:8087/"
     private const val USUARIO_URL = "http://$IP:8081/"
 
     val productoApi: ProductoApi by lazy {

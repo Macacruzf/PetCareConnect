@@ -1,5 +1,6 @@
 package com.example.petcareconnect.ui.viewmodel
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,8 @@ import com.example.petcareconnect.data.session.UserSession
 import com.example.petcareconnect.domain.validation.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 // -------------------------------------------------------------
 //                        ESTADOS UI
@@ -67,6 +70,12 @@ class AuthViewModel : ViewModel() {
 
     private val _allUsers = MutableStateFlow<List<Usuario>>(emptyList())
     val allUsers: StateFlow<List<Usuario>> = _allUsers
+
+    private val _fotoPerfil = MutableStateFlow<Bitmap?>(null)
+    val fotoPerfil: StateFlow<Bitmap?> = _fotoPerfil
+
+    private val _isUploadingFoto = MutableStateFlow(false)
+    val isUploadingFoto: StateFlow<Boolean> = _isUploadingFoto
 
     // -------------------------------------------------------------
     fun clearLoginResult() {
@@ -260,7 +269,16 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onRegisterPassChange(v: String) {
-        _register.update { it.copy(pass = v, passError = validateStrongPassword(v)) }
+        _register.update {
+            val passError = validateStrongPassword(v)
+            // Revalidar confirmación si ya se ingresó
+            val confirmError = if (it.confirm.isNotEmpty()) {
+                validateConfirm(v, it.confirm)
+            } else {
+                it.confirmError
+            }
+            it.copy(pass = v, passError = passError, confirmError = confirmError)
+        }
         validateRegisterReady()
     }
 
@@ -372,6 +390,119 @@ class AuthViewModel : ViewModel() {
 
             } catch (e: Exception) {
                 onResult("Error al actualizar: ${e.message}")
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // CAMBIAR CONTRASEÑA
+    // -------------------------------------------------------------
+    fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+        confirmNewPassword: String,
+        onResult: (String?) -> Unit
+    ) {
+        val id = UserSession.usuarioId ?: return onResult("Usuario no autenticado")
+
+        viewModelScope.launch {
+            try {
+                val request = ChangePasswordRequest(
+                    currentPassword = currentPassword,
+                    newPassword = newPassword,
+                    confirmNewPassword = confirmNewPassword
+                )
+
+                val response = ApiModule.usuarioApi.changePassword(id, request)
+
+                if (response.success) {
+                    onResult(null) // Éxito
+                } else {
+                    onResult(response.message)
+                }
+
+            } catch (e: Exception) {
+                onResult("Error al cambiar contraseña: ${e.message}")
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // FOTO DE PERFIL
+    // -------------------------------------------------------------
+
+    /**
+     * Sube una foto de perfil al servidor
+     */
+    fun subirFotoPerfil(bitmap: Bitmap, idUsuario: Int? = null, onResult: (String?) -> Unit) {
+        val id = idUsuario ?: UserSession.usuarioId ?: return onResult("Usuario no autenticado")
+
+        viewModelScope.launch {
+            _isUploadingFoto.value = true
+            try {
+                // Comprimir bitmap a JPEG
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+                val byteArray = stream.toByteArray()
+
+                // Crear MultipartBody.Part
+                val requestBody = byteArray.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                val fotoPart = okhttp3.MultipartBody.Part.createFormData("foto", "foto_perfil.jpg", requestBody)
+
+                // Subir al servidor
+                val response = ApiModule.usuarioApi.subirFotoPerfil(id, fotoPart)
+
+                if (response["success"] == true) {
+                    _fotoPerfil.value = bitmap
+                    onResult(null) // Éxito
+                } else {
+                    onResult("Error al subir la foto")
+                }
+            } catch (e: Exception) {
+                onResult("Error: ${e.message}")
+            } finally {
+                _isUploadingFoto.value = false
+            }
+        }
+    }
+
+    /**
+     * Obtiene la foto de perfil del servidor
+     */
+    fun cargarFotoPerfil(idUsuario: Int? = null) {
+        val id = idUsuario ?: UserSession.usuarioId ?: return
+
+        viewModelScope.launch {
+            try {
+                val responseBody = ApiModule.usuarioApi.obtenerFotoPerfil(id)
+                val bytes = responseBody.bytes()
+                val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                _fotoPerfil.value = bitmap
+            } catch (e: Exception) {
+                println("Error al cargar foto de perfil: ${e.message}")
+                _fotoPerfil.value = null
+            }
+        }
+    }
+
+    /**
+     * Elimina la foto de perfil del servidor
+     */
+    fun eliminarFotoPerfil(idUsuario: Int? = null, onResult: (String?) -> Unit) {
+        val id = idUsuario ?: UserSession.usuarioId ?: return onResult("Usuario no autenticado")
+
+        viewModelScope.launch {
+            try {
+                val response = ApiModule.usuarioApi.eliminarFotoPerfil(id)
+
+                if (response["success"] == true) {
+                    _fotoPerfil.value = null
+                    onResult(null) // Éxito
+                } else {
+                    onResult("Error al eliminar la foto")
+                }
+            } catch (e: Exception) {
+                onResult("Error: ${e.message}")
             }
         }
     }

@@ -36,9 +36,9 @@ interface ProductoDao {
     @Query("UPDATE productos SET estado = :nuevoEstado WHERE idProducto = :id")
     suspend fun updateEstado(id: Int, nuevoEstado: EstadoProducto)
 
-    // 🔹 NUEVO: actualizar SOLO la imagen desde URI
-    @Query("UPDATE productos SET imagenUri = :nuevaUri WHERE idProducto = :id")
-    suspend fun updateImagenUri(id: Int, nuevaUri: String?)
+    // Actualizar URL de imagen
+    @Query("UPDATE productos SET imagenUrl = :nuevaUrl WHERE idProducto = :id")
+    suspend fun updateImagenUrl(id: Int, nuevaUrl: String?)
     @Query("DELETE FROM productos")
     suspend fun deleteAll()
 

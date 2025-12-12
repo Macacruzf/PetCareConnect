@@ -22,9 +22,12 @@ data class Carrito(
     // ⭐ NECESARIO PARA EVITAR PASARSE DEL STOCK
     val stock: Int,
 
-    // Imagen opcional
-    val imagenResId: Int? = null,
+    // URL de la imagen desde el backend
+    val imagenUrl: String? = null,
 
-    // Para imágenes URI en el futuro
-    val imagenUri: String? = null
+    // URI local (cámara/galería) - solo para edición temporal
+    val imagenUri: String? = null,
+    
+    // ID de drawable local como fallback
+    val imagenResId: Int? = null
 )

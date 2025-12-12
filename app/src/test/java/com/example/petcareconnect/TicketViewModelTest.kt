@@ -129,11 +129,14 @@ class TicketViewModelTest {
 
         // When
         viewModel.loadTickets(idProducto)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar solo 100ms para capturar el error antes de que autoClearMessage (2000ms) lo limpie
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         // Verificar que el mensaje de error está presente
         assertNotNull(viewModel.state.value.errorMsg)
+        assertEquals("Error al cargar reseñas.", viewModel.state.value.errorMsg)
         coVerify(exactly = 1) { remoteRepository.listarPorProducto(idProducto) }
     }
 
@@ -171,12 +174,14 @@ class TicketViewModelTest {
 
         // When
         viewModel.enviarTicket(10L, 1L)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar solo 100ms para capturar el error antes del autoClearMessage
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         // El mensaje de error debe estar presente inmediatamente
         assertNotNull(viewModel.state.value.errorMsg)
-        assertTrue(viewModel.state.value.errorMsg!!.contains("comentario"))
+        assertEquals("Escribe un comentario.", viewModel.state.value.errorMsg)
         coVerify(exactly = 0) { remoteRepository.crearTicket(any()) }
     }
 
@@ -188,12 +193,14 @@ class TicketViewModelTest {
 
         // When
         viewModel.enviarTicket(10L, 1L)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar solo 100ms para capturar el error antes del autoClearMessage
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         // El mensaje de error debe estar presente inmediatamente
         assertNotNull(viewModel.state.value.errorMsg)
-        assertTrue(viewModel.state.value.errorMsg!!.contains("estrellas"))
+        assertEquals("Selecciona estrellas.", viewModel.state.value.errorMsg)
         coVerify(exactly = 0) { remoteRepository.crearTicket(any()) }
     }
 
@@ -219,7 +226,9 @@ class TicketViewModelTest {
 
         // When
         viewModel.enviarTicket(idProducto, idUsuario)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar solo 100ms para capturar el success antes del autoClearMessage
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         assertEquals("", viewModel.state.value.comentario)
@@ -237,11 +246,14 @@ class TicketViewModelTest {
 
         // When
         viewModel.agregarComentario(5L, 1L)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar solo 100ms para capturar el error antes del autoClearMessage
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         // Verificar que el mensaje de error está presente
         assertNotNull(viewModel.state.value.errorMsg)
+        assertEquals("Escribe una respuesta.", viewModel.state.value.errorMsg)
         coVerify(exactly = 0) { remoteRepository.agregarComentario(any(), any()) }
     }
 
@@ -261,10 +273,14 @@ class TicketViewModelTest {
         )
         coEvery { remoteRepository.agregarComentario(idTicket, any()) } returns mockComentarioResponse
         coEvery { remoteRepository.obtenerComentarios(idTicket) } returns emptyList()
+        // Mock para loadTickets que se llama internamente si existe un ticket en state
+        coEvery { remoteRepository.listarPorProducto(any()) } returns emptyList()
 
         // When
         viewModel.agregarComentario(idTicket, idUsuario)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // Avanzar un poco para que se ejecuten las coroutines pero no el delay completo
+        testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.runCurrent()
 
         // Then
         assertEquals("", viewModel.state.value.nuevoComentario)
@@ -274,4 +290,3 @@ class TicketViewModelTest {
         coVerify(exactly = 1) { remoteRepository.obtenerComentarios(idTicket) }
     }
 }
-

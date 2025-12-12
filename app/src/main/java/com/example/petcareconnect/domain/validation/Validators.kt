@@ -3,13 +3,16 @@ package com.example.petcareconnect.domain.validation
 import android.util.Patterns // Usamos el patrón estándar de Android para emails
 
 // Valida que el email no esté vacío y cumpla patrón de email
-fun validateEmail(email: String): String? {                            // Retorna String? (mensaje) o null si está OK
-    if (email.isBlank()) return "El email es obligatorio"              // Regla 1: no vacío
-    val ok = Patterns.EMAIL_ADDRESS.matcher(email).matches()           // Regla 2: coincide con patrón de email
-    return if (!ok) "Formato de email inválido" else null              // Si no cumple, devolvemos mensaje
+fun validateEmail(email: String): String? {                            // Valida email
+    if (email.isBlank()) return "El correo electrónico es obligatorio" // Regla 1: no vacío
+    // Regex más permisiva que acepta dominios internacionales (.cl, .ar, .mx, etc.)
+    // Acepta: letras, números, puntos, guiones y guiones bajos antes del @
+    // Requiere: @ seguido de dominio válido con al menos 2 letras en el TLD
+    val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    val ok = emailRegex.matches(email.trim())                          // Regla 2: coincide con patrón de email
+    return if (!ok) "Formato de correo inválido" else null             // Mensaje si falla
 }
 
-// Valida que el nombre contenga solo letras y espacios (sin números)
 fun validateNameLettersOnly(name: String): String? {                   // Valida nombre
     if (name.isBlank()) return "El nombre es obligatorio"              // Regla 1: no vacío
     val regex = Regex("^[A-Za-zÁÉÍÓÚÑáéíóúñ ]+$")                      // Regla 2: solo letras y espacios (con tildes/ñ)

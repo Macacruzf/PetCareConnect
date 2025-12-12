@@ -25,8 +25,7 @@ class CarritoViewModelTest {
         precio: Double = 1000.0,
         cantidad: Int = 1,
         stock: Int = 5,
-        imagenResId: Int? = null,
-        imagenUri: String? = null
+        imagenUrl: String? = null
     ): Carrito {
         return Carrito(
             idItem = idItem,
@@ -35,8 +34,7 @@ class CarritoViewModelTest {
             precio = precio,
             cantidad = cantidad,
             stock = stock,
-            imagenResId = imagenResId,
-            imagenUri = imagenUri
+            imagenUrl = imagenUrl
         )
     }
 

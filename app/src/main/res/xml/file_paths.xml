@@ -4,4 +4,9 @@
     <cache-path
         name="images"
         path="." />
+
+    <!-- Permite guardar fotos en el directorio de Pictures -->
+    <external-files-path
+        name="pictures"
+        path="Pictures/" />
 </paths>

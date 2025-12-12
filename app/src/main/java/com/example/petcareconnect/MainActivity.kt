@@ -21,17 +21,21 @@ import com.example.petcareconnect.ui.viewmodel.TicketViewModelFactory
 
 // Pantalla raíz
 import com.example.petcareconnect.ui.screen.AppRootScreen
+// Notificaciones
+import com.example.petcareconnect.util.NotificationHelper
 
-// Retrofit
-import com.example.petcareconnect.data.remote.ApiModule
+// Remote repositories y API
 import com.example.petcareconnect.data.remote.ProductoRemoteRepository
 import com.example.petcareconnect.data.remote.repository.TicketRemoteRepository
+import com.example.petcareconnect.data.remote.ApiModule
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        // ⭐ Inicializar canal de notificaciones
+        NotificationHelper.createNotificationChannel(this)
 
         // ⭐ Repos remotos (únicos que usaremos ahora)
         val productoRemoteRepo = ProductoRemoteRepository(ApiModule.productoApi)

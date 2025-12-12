@@ -1,11 +1,11 @@
 package com.example.petcareconnect.ui.screen
 
-import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,7 +37,7 @@ import java.io.File
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.petcareconnect.ui.theme.PetBlueAccent
 import com.example.petcareconnect.ui.theme.PetGreenPrimary
-import androidx.compose.foundation.BorderStroke   // ⭐ IMPORT NECESARIO
+import com.example.petcareconnect.util.NotificationHelper  // ⭐ IMPORT NOTIFICACIONES
 
 
 // ---------------------------------------------------------------------------
@@ -50,17 +50,21 @@ fun RegisterScreenVm(
     onGoLogin: () -> Unit
 ) {
     val state by vm.register.collectAsStateWithLifecycle()
-
+    val context = LocalContext.current  // ⭐ Obtener contexto
     // Siempre rol CLIENTE
     LaunchedEffect(Unit) {
         vm.onRolChange("CLIENTE")
     }
 
-    // ⭐ Limpia TODO al registrar correctamente
+    // ⭐ Limpia TODO al registrar correctamente Y MUESTRA NOTIFICACIÓN
     LaunchedEffect(state.success) {
         if (state.success) {
+            // ⭐ MOSTRAR NOTIFICACIÓN DE REGISTRO EXITOSO
+            NotificationHelper.showRegistroExitosoNotification(
+                context = context,
+                nombreUsuario = state.name
+            )
             vm.clearRegisterResult()
-            vm.resetRegisterForm()
             onRegisteredNavigateLogin()
         }
     }

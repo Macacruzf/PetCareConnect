@@ -17,7 +17,12 @@ data class Producto(
     val categoriaId: Long,
 
     val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
-
-    val imagenResId: Int? = null, //drawable
-    val imagenUri: String? = null //guarda directamente de la camara o galeria
+    
+    val imagenUrl: String? = null,
+    
+    // URI local (cámara/galería) - solo para edición temporal
+    val imagenUri: String? = null,
+    
+    // ID de drawable local como fallback (deprecated - usar imagenUrl)
+    val imagenResId: Int? = null
 )

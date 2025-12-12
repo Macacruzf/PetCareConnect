@@ -16,6 +16,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
 import com.example.petcareconnect.data.model.Carrito
 import com.example.petcareconnect.ui.viewmodel.CarritoViewModel
 
@@ -109,16 +110,40 @@ fun CarritoItemCard(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Si el producto tiene imagen asociada, se muestra
-            item.imagenResId?.let {
-                Image(
-                    painter = painterResource(id = it),
-                    contentDescription = item.nombre,
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(MaterialTheme.shapes.small), // Bordes redondeados
-                    contentScale = ContentScale.Crop // Ajuste proporcional sin deformar la imagen
-                )
+            // ✅ Mostrar imagen con prioridad: imagenUrl (backend) > imagenUri (local) > imagenResId (drawable)
+            when {
+                item.imagenUrl != null -> {
+                    Image(
+                        painter = rememberAsyncImagePainter(item.imagenUrl),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(MaterialTheme.shapes.small),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                item.imagenUri != null -> {
+                    Image(
+                        painter = rememberAsyncImagePainter(item.imagenUri),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(MaterialTheme.shapes.small),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                item.imagenResId != null -> {
+                    Image(
+                        painter = painterResource(id = item.imagenResId),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(MaterialTheme.shapes.small),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
 
             Spacer(Modifier.width(10.dp))

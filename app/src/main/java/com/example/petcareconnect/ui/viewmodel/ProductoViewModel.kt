@@ -27,7 +27,6 @@ data class ProductoUiState(
     val stock: String = "",
     val categoriaId: Long? = null,
     val estado: EstadoProducto = EstadoProducto.DISPONIBLE,
-    val imagenResId: Int? = null,
     val imagenUri: String? = null,
 
     val isLoading: Boolean = false,
@@ -133,8 +132,7 @@ class ProductoViewModel(
             stock = producto.stock.toString(),
             categoriaId = producto.categoriaId,
             estado = producto.estado,
-            imagenUri = producto.imagenUri,
-            imagenResId = producto.imagenResId
+            imagenUri = producto.imagenUrl
         )
     }
 
@@ -239,8 +237,7 @@ class ProductoViewModel(
     fun onStockChange(v: String) = update { copy(stock = v) }
     fun onCategoriaChange(v: Long) = update { copy(categoriaId = v) }
     fun onEstadoChange(v: EstadoProducto) = update { copy(estado = v) }
-    fun onImagenChange(id: Int?) = update { copy(imagenResId = id, imagenUri = null) }
-    fun onImagenUriChange(uri: String?) = update { copy(imagenUri = uri, imagenResId = null) }
+    fun onImagenUriChange(uri: String?) = update { copy(imagenUri = uri) }
 
     private fun update(block: ProductoUiState.() -> ProductoUiState) {
         _state.value = _state.value.block()
@@ -254,7 +251,6 @@ class ProductoViewModel(
             categoriaId = null,
             estado = EstadoProducto.DISPONIBLE,
             imagenUri = null,
-            imagenResId = null,
             productoEnEdicionId = null
         )
     }

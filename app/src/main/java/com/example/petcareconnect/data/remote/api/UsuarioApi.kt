@@ -1,6 +1,8 @@
 package com.example.petcareconnect.data.remote.api
 
 import com.example.petcareconnect.data.remote.dto.*
+import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.http.*
 
 interface UsuarioApi {
@@ -8,7 +10,7 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // 🔐 LOGIN
     // --------------------------------------------------------
-    @POST("usuario/login")
+    @POST("api/usuarios/login")
     suspend fun login(
         @Body body: LoginRequest
     ): LoginResponse
@@ -16,7 +18,7 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // 🧾 REGISTRO
     // --------------------------------------------------------
-    @POST("usuario/register")
+    @POST("api/usuarios/register")
     suspend fun register(
         @Body body: RegisterRequest
     ): UsuarioRemote
@@ -24,21 +26,30 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // 👤 PERFIL
     // --------------------------------------------------------
-    @GET("usuario/perfil/{id}")
+    @GET("api/usuarios/perfil/{id}")
     suspend fun getPerfil(
         @Path("id") id: Int
     ): UsuarioRemote
 
-    @PUT("usuario/perfil/{id}")
+    @PUT("api/usuarios/perfil/{id}")
     suspend fun updatePerfil(
         @Path("id") id: Int,
         @Body body: UsuarioRemote
     ): UsuarioRemote
 
     // --------------------------------------------------------
+    // 🔑 CAMBIAR CONTRASEÑA
+    // --------------------------------------------------------
+    @POST("api/usuarios/cambiar-password/{id}")
+    suspend fun changePassword(
+        @Path("id") id: Int,
+        @Body body: ChangePasswordRequest
+    ): ChangePasswordResponse
+
+    // --------------------------------------------------------
     // 🔒 VALIDAR CREDENCIALES
     // --------------------------------------------------------
-    @POST("usuario/validar-credenciales")
+    @POST("api/usuarios/validar-credenciales")
     suspend fun validarCredenciales(
         @Body body: LoginRequest
     ): ValidacionResponse
@@ -46,12 +57,12 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // 🛡️ ROLES Y ESTADO
     // --------------------------------------------------------
-    @GET("usuario/{id}/rol")
+    @GET("api/usuarios/{id}/rol")
     suspend fun getRol(
         @Path("id") id: Int
     ): Map<String, String>
 
-    @GET("usuario/{id}/estado")
+    @GET("api/usuarios/{id}/estado")
     suspend fun getEstado(
         @Path("id") id: Int
     ): Map<String, String>
@@ -59,7 +70,7 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // 📋 LISTAR USUARIOS (solo admin)
     // --------------------------------------------------------
-    @GET("usuario/listar/{idAdmin}")
+    @GET("api/usuarios/listar/{idAdmin}")
     suspend fun listarUsuarios(
         @Path("idAdmin") idAdmin: Int
     ): List<UsuarioRemote>
@@ -67,8 +78,28 @@ interface UsuarioApi {
     // --------------------------------------------------------
     // ❌ ELIMINAR USUARIO
     // --------------------------------------------------------
-    @DELETE("usuario/{id}")
+    @DELETE("api/usuarios/{id}")
     suspend fun deleteUser(
         @Path("id") id: Int
     )
+
+    // --------------------------------------------------------
+    // 📸 FOTO DE PERFIL
+    // --------------------------------------------------------
+    @Multipart
+    @POST("api/usuarios/{id}/foto")
+    suspend fun subirFotoPerfil(
+        @Path("id") id: Int,
+        @Part foto: MultipartBody.Part
+    ): Map<String, Any>
+
+    @GET("api/usuarios/{id}/foto")
+    suspend fun obtenerFotoPerfil(
+        @Path("id") id: Int
+    ): ResponseBody
+
+    @DELETE("api/usuarios/{id}/foto")
+    suspend fun eliminarFotoPerfil(
+        @Path("id") id: Int
+    ): Map<String, Any>
 }

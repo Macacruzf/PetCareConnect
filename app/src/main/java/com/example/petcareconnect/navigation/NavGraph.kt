@@ -165,7 +165,7 @@ fun AppNavGraph(
                                     precio = producto.precio,
                                     cantidad = 1,
                                     stock = producto.stock,
-                                    imagenResId = producto.imagenResId
+                                    imagenUrl = producto.imagenUrl
                                 )
                             )
                             scope.launch { snackbarHostState.showSnackbar("Producto agregado") }
@@ -274,7 +274,7 @@ fun AppNavGraph(
                                     precio = producto.precio,
                                     cantidad = 1,
                                     stock = producto.stock,
-                                    imagenResId = producto.imagenResId
+                                    imagenUrl = producto.imagenUrl
                                 )
                             )
                             scope.launch { snackbarHostState.showSnackbar("Producto agregado") }

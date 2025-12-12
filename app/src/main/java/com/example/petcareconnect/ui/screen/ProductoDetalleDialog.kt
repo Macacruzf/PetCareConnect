@@ -81,14 +81,12 @@ fun ProductoDetalleDialog(
                     }
                 }
 
-                /* IMAGEN */
+                /* IMAGEN - ✅ PRIORIDAD: imagenUrl (backend) > imagenUri (local) > imagenResId (drawable) > logo default */
                 val painter = when {
-                    producto.imagenUri != null ->
-                        rememberAsyncImagePainter(producto.imagenUri)
-                    producto.imagenResId != null ->
-                        painterResource(id = producto.imagenResId!!)
-                    else ->
-                        painterResource(id = R.drawable.ic_petcare_logo)
+                    producto.imagenUrl != null -> rememberAsyncImagePainter(producto.imagenUrl)
+                    producto.imagenUri != null -> rememberAsyncImagePainter(producto.imagenUri)
+                    producto.imagenResId != null -> painterResource(id = producto.imagenResId)
+                    else -> painterResource(id = R.drawable.ic_petcare_logo)
                 }
 
                 Image(
